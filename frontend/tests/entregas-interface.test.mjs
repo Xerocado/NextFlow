@@ -64,7 +64,7 @@ test('pendências deixam explícito o período de entregas e não exibem novo ca
 
 test('movimento inicia sem valores fictícios e explica data efetiva e saldo diário', () => {
   const html = renderToStaticMarkup(React.createElement(Movimento, { empresaId: 'empresa' }))
-  assert.match(html, /Carregando movimento/)
+  assert.match(html, /Carregando resumo do movimento/)
   assert.match(html, /inclusive os de entregas anteriores/)
   assert.match(html, /não é o saldo total da empresa/)
   assert.match(html, /href="#\/historico"/)

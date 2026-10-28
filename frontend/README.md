@@ -8,6 +8,10 @@ novamente. A integração `.\mvnw.cmd -o verify` passou com 71 testes rápidos e
 foi 156.0.4314.50; detalhes, comandos e limites estão em
 [docs/validacao-interface.md](../docs/validacao-interface.md).
 
+Na validação seguinte, paginar gastos no Movimento gerou somente a requisição
+da própria lista. O resumo e as outras listas permaneceram disponíveis; erros,
+cancelamento e carregamento são independentes por seção.
+
 ## Navegação isolada — continuação de 27/10/2026
 
 18 cenários de navegador aprovados com Playwright/Edge headless, API real,

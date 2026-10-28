@@ -17,10 +17,26 @@ movimento, troca de empresa, SMTP local e viewports mobile. O build gerou JS de
 295,65 kB (87,44 kB gzip) e CSS de 19,48 kB (4,61 kB gzip). Capturas e logs
 ficaram em `.cache/navegacao-1793187917122/`, ignorado pelo Git.
 
-O Git remoto ainda não recebeu a branch; `gh` não está instalado. A publicação
-será feita por `git push` após revisar o conteúdo do commit. As mudanças locais
-preexistentes em `AGENTS.md`, `docs/plano-open-source-e-uso-real.md` e `end`
-continuam fora do escopo e dos commits.
+O commit `27e7013` foi enviado para `origin/feat/estabilidade-operacional`, após
+revisão do diff e das validações. `gh` não está instalado; o envio usou Git.
+As mudanças locais preexistentes em `AGENTS.md`,
+`docs/plano-open-source-e-uso-real.md` e `end` continuam fora dos commits.
+
+## Atualização — 28/10/2026 — paginação independente do movimento
+
+`frontend/src/Movimento.tsx` agora consulta entregas, recebimentos e gastos de
+forma independente. Ao mudar a página de gastos, só a lista de gastos é
+consultada; resumo e listas anteriores permanecem visíveis. Atualizar o dia ou
+solicitar atualização continua recarregando os dados aplicáveis. Erros,
+carregamento e cancelamento são tratados por lista.
+
+`npm test --prefix frontend`: 68 testes aprovados;
+`npm run build --prefix frontend`: TypeScript e Vite aprovados.
+`node scripts/validar-interface.mjs`
+aprovou os 18 cenários em Edge, agora verificando também que paginar gastos
+envia somente uma consulta de gastos. Artefatos em
+`.cache/navegacao-1793188428703/`. Não houve alteração de backend, banco ou
+contrato financeiro nesta melhoria.
 
 ## Atualização — 27/10/2026 — navegação isolada e correções de interface
 

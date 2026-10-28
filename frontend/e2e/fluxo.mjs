@@ -162,6 +162,29 @@ export async function validarFluxos({ browser, expect: original, baseURL, pasta,
       await expect(pagina.locator('.metrica').filter({ hasText: 'Recebido no dia' })).toContainText('100,20')
       await expect(pagina.locator('.metrica').filter({ hasText: 'Gastos do dia' })).toContainText('25,50')
       await expect(pagina.locator('.metrica').filter({ hasText: 'Saldo do dia' })).toContainText('74,70')
+      const entregasDia = pagina.getByRole('region', { name: 'Entregas do dia', exact: true })
+      const gastosDia = pagina.locator('.painel').filter({ has: pagina.getByRole('heading', { name: 'Gastos do dia', exact: true }) })
+      await expect(entregasDia.locator('tbody tr')).toHaveCount(2)
+      await expect(gastosDia.locator('tbody tr')).toHaveCount(20)
+      const consultas = []
+      const observarConsulta = pedido => {
+        const url = new URL(pedido.url())
+        if (pedido.method() === 'GET' && url.pathname.includes(`/api/estabelecimentos/${a.id}/`)) consultas.push(`${url.pathname}${url.search}`)
+      }
+      pagina.on('request', observarConsulta)
+      const paginaDeGastos = pagina.waitForResponse(resposta => {
+        const url = new URL(resposta.url())
+        return resposta.request().method() === 'GET' && url.pathname.endsWith('/gastos') && url.searchParams.get('pagina') === '1'
+      })
+      // Se o clique falhar antes da resposta, marque a rejeição como tratada até o await abaixo.
+      void paginaDeGastos.catch(() => {})
+      await gastosDia.getByRole('button', { name: 'Próxima', exact: true }).click()
+      assert.equal((await paginaDeGastos).status(), 200)
+      await expect(gastosDia.locator('tbody tr')).toHaveCount(2)
+      await expect(gastosDia.locator('tbody')).toContainText('Água fictícia')
+      assert.equal(consultas.length, 1)
+      assert.match(consultas[0], /\/gastos\?data=.*&pagina=1&/)
+      pagina.off('request', observarConsulta)
       await pagina.screenshot({ path: join(pasta, 'desktop-movimento.png'), fullPage: true })
       await pagina.getByLabel('Dia do movimento', { exact: true }).fill(ontem)
       await expect(pagina.locator('.metrica').filter({ hasText: 'Recebido no dia' })).toContainText('50,10')

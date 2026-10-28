@@ -78,6 +78,8 @@ os IDs próprios registrados em `ambiente.json`.
 - Gastos pela interface e massa adicional pela API: 22 registros, total de
   R$ 25,50 preservado na segunda página. Movimento mostra R$ 100,20 recebidos e
   saldo de R$ 74,70 hoje; R$ 50,10 recebidos ontem, sem deslocar a entrega antiga.
+  Paginar os gastos no Movimento enviou somente o GET de gastos; o resumo e as
+  outras listas não foram consultados novamente.
 - Isolamento por HTTP entre usuários e entre empresas do mesmo proprietário.
 - Link de salto acionado por teclado: foco real no main e hash preservado.
 - Relatórios com aviso de desenvolvimento e tema escuro no movimento.

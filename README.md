@@ -123,7 +123,7 @@ flowchart LR
 - **Esquema:** Flyway versiona as mudanças; Hibernate valida as tabelas.
 - **Interface:** cookie de sessão HttpOnly e proteção CSRF; o proxy Vite encaminha `/api` ao backend no desenvolvimento.
 
-A revalidação de 28/10/2026 passou com 71 testes rápidos e 31 integrados em PostgreSQL descartável, build frontend e 18 cenários de navegação em Edge, incluindo larguras desktop/mobile. Esses resultados não declaram prontidão para produção. Comandos, reprodução e limites estão no [guia de navegação isolada](docs/validacao-interface.md) e no [estado atual](docs/estado-atual.md).
+A revalidação de 28/10/2026 passou com 71 testes rápidos e 31 integrados em PostgreSQL descartável, build frontend e 18 cenários de navegação em Edge, incluindo larguras desktop/mobile. A paginação do Movimento foi validada separadamente e consulta somente a lista alterada. Esses resultados não declaram prontidão para produção. Comandos, reprodução e limites estão no [guia de navegação isolada](docs/validacao-interface.md) e no [estado atual](docs/estado-atual.md).
 
 <details>
 <summary><strong>Organização do projeto</strong></summary>
