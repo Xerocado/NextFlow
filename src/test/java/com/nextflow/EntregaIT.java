@@ -77,6 +77,50 @@ class EntregaIT {
                 .isInstanceOf(EstabelecimentoNaoEncontradoException.class);
     }
 
+    @Test void pendenciasComecamEmTodoHistoricoEExibemSaldoCompletoPorEmpresa() throws Exception {
+        var dono = usuario();
+        var empresa = empresas.criar(dono.getId(), "Pendências antigas");
+        var outra = empresas.criar(dono.getId(), "Outra empresa");
+        var hoje = LocalDate.now(ZoneId.of("America/Sao_Paulo"));
+        var antiga = entregas.criar(dono.getId(), empresa.id(), new EntregaEntrada(
+                hoje.minusMonths(5), null, null, BigDecimal.ONE, new BigDecimal("1000.11"), false, null));
+        var recente = entregas.criar(dono.getId(), empresa.id(), new EntregaEntrada(
+                hoje.minusDays(1), null, null, BigDecimal.ONE, new BigDecimal("200.25"), false, null));
+        entregas.receber(dono.getId(), empresa.id(), recente.id(),
+                new PagamentoEntrada(hoje, new BigDecimal("50.05")));
+        var quitada = entregas.criar(dono.getId(), empresa.id(), new EntregaEntrada(
+                hoje, null, null, BigDecimal.ONE, new BigDecimal("30.00"), false, null));
+        entregas.receber(dono.getId(), empresa.id(), quitada.id(), new PagamentoEntrada(hoje, new BigDecimal("30.00")));
+        entregas.criar(dono.getId(), empresa.id(), new EntregaEntrada(
+                hoje, null, null, BigDecimal.ONE, BigDecimal.ZERO, true, null));
+        entregas.criar(dono.getId(), outra.id(), new EntregaEntrada(
+                hoje.minusMonths(6), null, null, BigDecimal.ONE, new BigDecimal("99.99"), false, null));
+
+        var primeira = entregas.listar(dono.getId(), empresa.id(), null, null, true, 0, 1);
+        var segunda = entregas.listar(dono.getId(), empresa.id(), null, null, true, 1, 1);
+        assertThat(primeira.total()).isEqualTo(2);
+        assertThat(primeira.itens()).hasSize(1);
+        assertThat(primeira.totalSaldoPendente()).isEqualTo("1150.31");
+        assertThat(segunda.itens()).hasSize(1);
+        assertThat(segunda.totalSaldoPendente()).isEqualTo("1150.31");
+        mvc.perform(get("/api/estabelecimentos/" + empresa.id() + "/entregas")
+                .with(user(new UsuarioAutenticado(dono))).param("pendentes", "true"))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.total").value(2))
+                .andExpect(jsonPath("$.totalSaldoPendente").value("1150.31"));
+
+        var recentes = entregas.listar(dono.getId(), empresa.id(), hoje.minusDays(3), null, true, 0, 20);
+        assertThat(recentes.total()).isEqualTo(1);
+        assertThat(recentes.totalSaldoPendente()).isEqualTo("150.20");
+        var antigas = entregas.listar(dono.getId(), empresa.id(), null, hoje.minusDays(2), true, 0, 20);
+        assertThat(antigas.total()).isEqualTo(1);
+        assertThat(antigas.itens().getFirst().id()).isEqualTo(antiga.id());
+        assertThat(antigas.totalSaldoPendente()).isEqualTo("1000.11");
+        assertThatIllegalArgumentException().isThrownBy(() -> entregas.listar(
+                dono.getId(), empresa.id(), hoje, hoje.minusDays(1), true, 0, 20));
+        assertThatIllegalArgumentException().isThrownBy(() -> entregas.listar(
+                dono.getId(), empresa.id(), null, null, false, 0, 20));
+    }
+
     @Test void pagamentosConcorrentesNaoUltrapassamSaldo() throws Exception {
         var dono = usuario();
         var empresa = empresas.criar(dono.getId(), "Concorrencia");

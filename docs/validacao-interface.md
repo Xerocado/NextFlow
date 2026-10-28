@@ -15,6 +15,12 @@ uma entrega, simula perda da resposta, recarrega a tela e confirma que a repeti�
 usa a mesma chave e retorna o mesmo registro. Artefatos em
 `.cache/navegacao-1793189748372/`.
 
+Repetido em 28/10/2026 após melhoria das pendências: **20 cenários aprovados**.
+Inclui entrega com data 65 dias anterior, saldo total, filtro por data e limpeza
+do período; a tela de pendências também foi conferida em 390 e 360 px, com dica
+de rolagem horizontal e sem overflow da página. Capturas em
+`.cache/navegacao-1793191742197/`.
+
 ## Como reproduzir
 
 Requer JDK 21, Node 24+, Docker acessível, dependências do projeto e as imagens
@@ -83,6 +89,7 @@ os IDs próprios registrados em `ambiente.json`.
 - Entrega sem cobrança e avulso não identificado com saldo pendente.
 - Resposta perdida depois da gravação; reload e reenvio com a mesma chave,
   confirmando um único lançamento.
+- Dívida antiga sem filtro inicial, saldo total, limite de data e limpeza do filtro.
 - Gastos pela interface e massa adicional pela API: 22 registros, total de
   R$ 25,50 preservado na segunda página. Movimento mostra R$ 100,20 recebidos e
   saldo de R$ 74,70 hoje; R$ 50,10 recebidos ontem, sem deslocar a entrega antiga.

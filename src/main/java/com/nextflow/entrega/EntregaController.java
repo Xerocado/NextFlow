@@ -28,7 +28,8 @@ public class EntregaController {
             @PathVariable UUID id) { return service.consultar(usuario.getId(),empresaId,id); }
     @GetMapping
     public EntregaService.Pagina listar(@AuthenticationPrincipal UsuarioAutenticado usuario, @PathVariable UUID empresaId,
-            @RequestParam LocalDate inicio, @RequestParam LocalDate fim, @RequestParam(defaultValue="false") boolean pendentes,
+            @RequestParam(required=false) LocalDate inicio, @RequestParam(required=false) LocalDate fim,
+            @RequestParam(defaultValue="false") boolean pendentes,
             @RequestParam(defaultValue="0") int pagina, @RequestParam(defaultValue="20") int tamanho) {
         return service.listar(usuario.getId(),empresaId,inicio,fim,pendentes,pagina,tamanho);
     }

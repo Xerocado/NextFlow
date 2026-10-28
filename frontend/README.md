@@ -2,9 +2,9 @@
 
 ## Navegação isolada — revalidação de 28/10/2026
 
-Os 71 testes frontend, o build de produção e 19 cenários Edge foram executados
+Os 72 testes frontend, o build de produção e 20 cenários Edge foram executados
 novamente. A integração `.\mvnw.cmd -o verify` passou com 71 testes rápidos e
-35 integrados em PostgreSQL descartável, com as migrações V1–V8. O Edge usado
+36 integrados em PostgreSQL descartável, com as migrações V1–V8. O Edge usado
 foi 156.0.4314.50; detalhes, comandos e limites estão em
 [docs/validacao-interface.md](../docs/validacao-interface.md).
 
@@ -78,10 +78,12 @@ falhar, Atualizar registros recarrega lista e detalhe; reenviar pelo formulário
 com o mesmo conteúdo reutiliza a chave para evitar duplicação. A API ainda aceita
 chamadas antigas sem chave. Não há repetição automática, edição, exclusão ou estorno.
 
-Historico e Pagamentos pendentes filtram pela data da entrega, inicialmente do
-primeiro dia do mes ate hoje. Amplie o periodo para localizar dividas antigas.
-As listas sao paginadas, sem apresentar total financeiro de uma pagina como total
-geral. Cada entrega mostra valor, recebido, saldo e situacao. Recebimentos de
+Historico filtra pela data da entrega, inicialmente do primeiro dia do mes ate
+hoje. Pagamentos pendentes começa sem datas para incluir todo o histórico; você
+pode informar um início, um fim ou ambos. O saldo em aberto considera todas as
+pendências dentro do filtro, mesmo que estejam em outras páginas. A interface
+identifica o período consultado e permite limpar os limites. Cada entrega mostra
+valor, recebido, saldo e situação. Recebimentos de
 entregas antigas podem ocorrer em outra data; nao compor caixa pela data da entrega.
 
 Validacao desta entrega: npm test passou (62 testes), incluindo cliente HTTP

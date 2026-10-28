@@ -22,7 +22,16 @@ public interface EntregaRepository extends JpaRepository<Entrega, UUID> {
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("select e from Entrega e where e.id=:id and e.estabelecimentoId=:empresa")
     Optional<Entrega> bloquear(@Param("id") UUID id, @Param("empresa") UUID empresa);
-    @Query("select e from Entrega e where e.estabelecimentoId=:empresa and e.data between :inicio and :fim and (:pendentes=false or (e.semCobranca=false and e.valorTotal>e.valorPago)) order by e.data desc, e.criadoEm desc, e.id desc")
+    @Query("select e from Entrega e where e.estabelecimentoId=:empresa "
+            + "and e.data >= coalesce(:inicio, e.data) and e.data <= coalesce(:fim, e.data) "
+            + "and (:pendentes=false or (e.semCobranca=false and e.valorTotal>e.valorPago)) "
+            + "order by e.data desc, e.criadoEm desc, e.id desc")
     Page<Entrega> listar(@Param("empresa") UUID empresa, @Param("inicio") LocalDate inicio,
             @Param("fim") LocalDate fim, @Param("pendentes") boolean pendentes, Pageable pagina);
+
+    @Query("select coalesce(sum(e.valorTotal - e.valorPago), 0) from Entrega e "
+            + "where e.estabelecimentoId=:empresa and e.semCobranca=false and e.valorTotal>e.valorPago "
+            + "and e.data >= coalesce(:inicio, e.data) and e.data <= coalesce(:fim, e.data)")
+    BigDecimal totalSaldoPendente(@Param("empresa") UUID empresa, @Param("inicio") LocalDate inicio,
+            @Param("fim") LocalDate fim);
 }

@@ -13,7 +13,12 @@ Base: `/api/estabelecimentos/{empresaId}/entregas`.
   individuais e preservados. Nao aceita data futura ou valor acima do saldo.
 - GET `/{id}`: entrega e lista de pagamentos em ordem cronologica.
 - GET base: `inicio`, `fim`, `pendentes=false`, `pagina=0`, `tamanho=20`.
-  Periodo obrigatorio; tamanho de 1 a 100. Pendentes filtra saldo maior que zero.
+  Histórico (`pendentes=false`) exige início e fim. Pendências aceitam início,
+  fim, ambos ou nenhum; sem datas, consultam todo o histórico. Cada limite é
+  inclusivo. Tamanho de 1 a 100; pendentes filtra saldo maior que zero.
+  `totalSaldoPendente` é um decimal textual exato com o saldo de todas as
+  pendências no alcance do filtro, independentemente da página. `total` continua
+  sendo a quantidade de registros, nunca o total financeiro.
 
 Entrega nasce pendente; pagamentos integrais ou parciais sao registrados pelo
 endpoint de pagamentos. Sem cobranca permite valor zero e sempre tem saldo zero.
@@ -82,14 +87,14 @@ monetário e agregados, rollback após flush, cliente cadastrado com nome histó
 e isolamento HTTP. Na validação registrada abaixo, as migrações V1–V7 foram aplicadas e validadas somente nos
 bancos temporários; nenhum banco operacional foi usado.
 
-Frontend, revalidado em 28/10: 71 testes e build TypeScript/Vite passaram.
-19 cenários de navegador com API real e banco descartável foram aprovados,
-incluindo reenvio após resposta perdida, pagamento parcial/posterior, rejeições,
-totais, foco e respostas atrasadas após troca de empresa. Validado Edge com
+Frontend, revalidado em 28/10: 72 testes e build TypeScript/Vite passaram.
+20 cenários de navegador com API real e banco descartável foram aprovados,
+incluindo reenvio após resposta perdida, consulta de dívidas antigas, pagamento
+parcial/posterior, rejeições, totais, foco e respostas atrasadas após troca de empresa. Validado Edge com
 larguras responsivas desktop/mobile;
 reprodução e limites no [guia](validacao-interface.md). O teste de rollback usa
 transação real e falha simulada; os testes HTTP Java continuam usando MockMvc.
-Nesta revalidação, `.\mvnw.cmd -o verify` passou com 71 testes rápidos e 35
+Nesta revalidação, `.\mvnw.cmd -o verify` passou com 71 testes rápidos e 36
 integrados, no total aplicando V1–V8 aos bancos temporários. Detalhes em
 [estado atual](estado-atual.md).
 

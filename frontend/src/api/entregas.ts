@@ -4,7 +4,7 @@ export interface EntregaEntrada { data: string; clienteId: string | null; identi
 export interface Entrega { id: string; clienteId: string | null; identificacao: string | null; data: string; litros: number; valorTotal: number; valorPago: number; saldoPendente: number; semCobranca: boolean; motivo: string | null }
 export interface Pagamento { id: string; entregaId: string; data: string; valor: number }
 export interface DetalheEntrega { entrega: Entrega; pagamentos: Pagamento[] }
-export interface EntregasPagina { itens: Entrega[]; pagina: number; tamanho: number; total: number }
+export interface EntregasPagina { itens: Entrega[]; pagina: number; tamanho: number; total: number; totalSaldoPendente: string }
 
 export function hoje() {
   const partes = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Sao_Paulo', year: 'numeric', month: '2-digit', day: '2-digit' }).formatToParts(new Date())
@@ -45,10 +45,18 @@ async function requisitar(url: string, init: RequestInit = {}) {
   return resposta.json()
 }
 const caminho = (empresa: string) => `/api/estabelecimentos/${encodeURIComponent(empresa)}/entregas`
-export async function listarEntregas(empresa: string, inicio: string, fim: string, pendentes = false, pagina = 0, signal?: AbortSignal): Promise<EntregasPagina> {
-  validarData(inicio); validarData(fim)
-  if (inicio > fim) throw new Error('O início do período deve ser anterior ou igual ao fim.')
-  return requisitar(`${caminho(empresa)}?${new URLSearchParams({ inicio, fim, pendentes: String(pendentes), pagina: String(pagina), tamanho: '20' })}`, { signal })
+export async function listarEntregas(empresa: string, inicio?: string | null, fim?: string | null, pendentes = false, pagina = 0, signal?: AbortSignal): Promise<EntregasPagina> {
+  if (inicio) validarData(inicio)
+  if (fim) validarData(fim)
+  if (!pendentes && (!inicio || !fim)) throw new Error('Informe o início e o fim do período para consultar o histórico.')
+  if (inicio && fim && inicio > fim) throw new Error('O início do período deve ser anterior ou igual ao fim.')
+  const parametros = new URLSearchParams()
+  if (inicio) parametros.set('inicio', inicio)
+  if (fim) parametros.set('fim', fim)
+  parametros.set('pendentes', String(pendentes))
+  parametros.set('pagina', String(pagina))
+  parametros.set('tamanho', '20')
+  return requisitar(`${caminho(empresa)}?${parametros}`, { signal })
 }
 export function consultarEntrega(empresa: string, id: string, signal?: AbortSignal): Promise<DetalheEntrega> { return requisitar(`${caminho(empresa)}/${encodeURIComponent(id)}`, { signal }) }
 async function enviar(url: string, dados: unknown, chave?: string) {

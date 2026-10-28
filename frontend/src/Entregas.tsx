@@ -5,14 +5,15 @@ import type { DetalheEntrega, EntregasPagina } from './api/entregas'
 import { concluirChaveIdempotencia, obterChaveIdempotencia } from './api/idempotencia'
 import { listarClientes } from './api/clientes'
 import type { ClientesPagina } from './api/clientes'
+import { reaisExatos } from './formatacao'
 
 const reais = (valor: number) => valor.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
 const dataTexto = (data: string) => data.split('-').reverse().join('/')
 const mensagem = (erro: unknown) => erro instanceof Error ? erro.message : 'Não foi possível concluir.'
 
 export default function Entregas({ empresaId, pendentes = false }: { empresaId: string; pendentes?: boolean }) {
-  const [inicio, setInicio] = useState(() => `${hoje().slice(0, 7)}-01`)
-  const [fim, setFim] = useState(hoje)
+  const [inicio, setInicio] = useState(() => pendentes ? '' : `${hoje().slice(0, 7)}-01`)
+  const [fim, setFim] = useState(() => pendentes ? '' : hoje())
   const [pagina, setPagina] = useState(0)
   const [versao, setVersao] = useState(0)
   const [lista, setLista] = useState<EntregasPagina | null>(null)
@@ -31,6 +32,9 @@ export default function Entregas({ empresaId, pendentes = false }: { empresaId: 
   const [erroDetalhe, setErroDetalhe] = useState('')
   const trava = useRef(false)
   const montado = useRef(true)
+  const periodo = !inicio && !fim ? 'todas as datas de entrega'
+    : inicio && fim ? `entregas de ${dataTexto(inicio)} a ${dataTexto(fim)}`
+      : inicio ? `entregas a partir de ${dataTexto(inicio)}` : `entregas até ${dataTexto(fim)}`
   useEffect(() => { montado.current = true; return () => { montado.current = false } }, [])
   useEffect(() => {
     const controle = new AbortController()
@@ -76,6 +80,9 @@ export default function Entregas({ empresaId, pendentes = false }: { empresaId: 
     } catch (e) { if (montado.current) { setErro(mensagem(e)); setConferir(true) } }
     finally { trava.current = false; if (montado.current) setSalvando(false) }
   }
+  function limparPeriodo() {
+    setInicio(''); setFim(''); setPagina(0); setId(null)
+  }
   async function receber(evento: FormEvent<HTMLFormElement>) {
     evento.preventDefault()
     if (trava.current || conferir || !detalhe || !lista || carregando) return
@@ -94,10 +101,14 @@ export default function Entregas({ empresaId, pendentes = false }: { empresaId: 
     finally { trava.current = false; if (montado.current) setSalvando(false) }
   }
   return <>
-    <div className="barra-pagina"><label>De<input type="date" value={inicio} required disabled={salvando} onChange={e => { if (e.target.value) { setInicio(e.target.value); setPagina(0); setId(null) } }} /></label>
-      <label>Até<input type="date" value={fim} required disabled={salvando} onChange={e => { if (e.target.value) { setFim(e.target.value); setPagina(0); setId(null) } }} /></label>
+    <div className={`barra-pagina${pendentes ? ' filtros-pendencias' : ''}`}>
+      <label>{pendentes ? 'Entrega a partir de' : 'De'}<input aria-label={pendentes ? 'Entrega a partir de' : undefined} type="date" value={inicio} max={fim || undefined} required={!pendentes} disabled={salvando} onChange={e => { setInicio(e.target.value); setPagina(0); setId(null) }} /></label>
+      <label>{pendentes ? 'Entrega até' : 'Até'}<input aria-label={pendentes ? 'Entrega até' : undefined} type="date" value={fim} min={inicio || undefined} required={!pendentes} disabled={salvando} onChange={e => { setFim(e.target.value); setPagina(0); setId(null) }} /></label>
+      {pendentes && (inicio || fim) ? <button className="botao-secundario" type="button" disabled={salvando} onClick={limparPeriodo}>Limpar período</button> : null}
       <button className="botao-secundario" disabled={carregando || salvando} onClick={() => setVersao(n => n + 1)}>Atualizar registros</button></div>
-    <p className="rodape-painel">O período filtra a data da entrega{pendentes ? ', inclusive para as pendências. Amplie o período para consultar entregas antigas' : ''}. Recebimentos usam a data efetiva do pagamento.</p>
+    <p className={`rodape-painel${pendentes ? ' nota-filtro-pendencias' : ''}`}>{pendentes
+      ? 'Sem datas preenchidas, você vê todas as pendências, inclusive as antigas. O filtro usa a data da entrega; recebimentos posteriores continuam ligados a ela.'
+      : 'O período filtra a data da entrega. Recebimentos usam a data efetiva do pagamento.'}</p>
     {!pendentes ? <section className="painel formulario-preview"><div className="painel-titulo"><div><h2>Registrar entrega</h2><p>Informe os litros e o valor combinado. Registre os pagamentos separadamente.</p></div></div>
       <form onSubmit={cadastrar}><fieldset className="empresa-grupo" disabled={salvando || carregando || conferir || !lista}>
         <div className="grade-formulario"><div><label htmlFor="entrega-data">Data da entrega</label><input id="entrega-data" name="data" type="date" required defaultValue={hoje()} /></div>
@@ -112,11 +123,18 @@ export default function Entregas({ empresaId, pendentes = false }: { empresaId: 
       </fieldset></form></section> : null}
     {erro ? <div className="erro" role="alert">{erro} {conferir ? 'Atualize e confira a lista e os pagamentos antes de repetir, para evitar duplicidade.' : ''}</div> : null}
     {aviso ? <div className="aviso" role="status">{aviso}</div> : null}
-    {carregando ? <p role="status">Carregando entregas…</p> : lista ? <section className="painel"><div className="painel-titulo"><div><h2>{pendentes ? 'Entregas com saldo pendente' : 'Histórico de entregas'}</h2><p>{lista.total} registros no período</p></div></div>
+    {carregando ? <p role="status">Carregando entregas…</p> : lista ? <section className="painel"><div className="painel-titulo"><div><h2>{pendentes ? 'Entregas com saldo pendente' : 'Histórico de entregas'}</h2><p>{lista.total} {pendentes ? (lista.total === 1 ? 'pendência' : 'pendências') : 'registros'} · {periodo}</p></div></div>
+      {pendentes ? <div className="resumo-saldo-pendente" aria-label="Resumo de valores em aberto">
+        <div><span>Total em aberto</span><strong>{reaisExatos(lista.totalSaldoPendente)}</strong>
+          <p>Saldo de todas as {lista.total === 1 ? 'entregas listada' : 'entregas listadas'} neste resultado, em todas as páginas.</p></div>
+        <span className="badge badge-alerta">{lista.total} {lista.total === 1 ? 'pendência' : 'pendências'}</span>
+      </div> : null}
+      {pendentes ? <p className="dica-deslize-tabela">Deslize a tabela para ver valores e ações.</p> : null}
       <div className="tabela-scroll" tabIndex={0} role="region" aria-label="Entregas registradas"><table><caption className="sr-only">Entregas da empresa no período selecionado</caption><thead><tr>{['Data', 'Cliente', 'Litros', 'Total', 'Recebido', 'Pendente', 'Situação', 'Ações'].map(t => <th key={t} scope="col">{t}</th>)}</tr></thead><tbody>
         {lista.itens.map(e => <tr key={e.id}><td>{dataTexto(e.data)}</td><td className="texto-historico">{e.identificacao || 'não identificado'}</td><td>{e.litros}</td><td>{reais(e.valorTotal)}</td><td>{reais(e.valorPago)}</td><td>{reais(e.saldoPendente)}</td><td><span className={`badge badge-${e.saldoPendente > 0 ? 'alerta' : 'sucesso'}`}>{e.semCobranca ? 'Sem cobrança' : e.saldoPendente === 0 ? 'Pago' : e.valorPago > 0 ? 'Parcial' : 'Pendente'}</span></td><td><button className="botao-secundario" disabled={salvando || conferir} onClick={() => { setId(e.id); setErro(''); setAviso('') }}>Ver detalhes</button></td></tr>)}
-        {!lista.itens.length ? <tr><td colSpan={8}>Nenhuma entrega {pendentes ? 'pendente ' : ''}neste período.</td></tr> : null}</tbody></table></div>
-      <div className="painel-titulo"><button className="botao-secundario" disabled={pagina === 0 || salvando} onClick={() => setPagina(n => n - 1)}>Anterior</button><span>Página {pagina + 1}</span><button className="botao-secundario" disabled={(pagina + 1) * lista.tamanho >= lista.total || salvando} onClick={() => setPagina(n => n + 1)}>Próxima</button></div></section> : null}
+        {!lista.itens.length ? <tr><td colSpan={8} className="vazio">{pendentes ? (inicio || fim ? 'Nenhuma pendência encontrada nesse período.' : 'Nenhuma entrega com saldo em aberto.') : 'Nenhuma entrega neste período.'}
+          {pendentes && (inicio || fim) ? <button className="link-botao" type="button" onClick={limparPeriodo}>Ver todas as pendências</button> : null}</td></tr> : null}</tbody></table></div>
+      <div className="painel-titulo"><button className="botao-secundario" disabled={pagina === 0 || salvando} onClick={() => setPagina(n => n - 1)}>Anterior</button><span>Página {pagina + 1} de {Math.max(1, Math.ceil(lista.total / lista.tamanho))}</span><button className="botao-secundario" disabled={(pagina + 1) * lista.tamanho >= lista.total || salvando} onClick={() => setPagina(n => n + 1)}>Próxima</button></div></section> : null}
     {id ? <section className="painel formulario-preview" aria-label="Detalhes da entrega"><div className="painel-titulo"><div><h2>Detalhes da entrega</h2><p>{detalhe ? `${detalhe.entrega.identificacao || 'não identificado'} · ${dataTexto(detalhe.entrega.data)} · ${detalhe.entrega.litros} litros` : 'Consultando entrega…'}</p></div><button className="botao-secundario" disabled={salvando} onClick={() => setId(null)}>Fechar detalhes</button></div>
       {erroDetalhe ? <p className="erro" role="alert">{erroDetalhe} Use Atualizar registros para tentar novamente.</p> : detalhe ? <>
         <p>Total: {reais(detalhe.entrega.valorTotal)} · Recebido: {reais(detalhe.entrega.valorPago)} · Pendente: {reais(detalhe.entrega.saldoPendente)}</p>

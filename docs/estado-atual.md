@@ -23,6 +23,25 @@ opcional para clientes legados, não existe expurgo das linhas permanentes e a
 garantia frontend depende do `sessionStorage` disponível. Idempotência não cobre
 outros papéis, edições, estornos ou qualquer operação fora das três criações.
 
+## Atualização — 28/10/2026 — pendências de todo o histórico
+
+Pagamentos pendentes agora começa sem limites de data e inclui dívidas antigas.
+Início e fim são opcionais e independentes; cada limite informado filtra a data
+da entrega. “Limpar período” volta a mostrar todas. A tela informa o alcance do
+filtro, quantidade de registros e saldo total em aberto de todas as páginas. A
+API devolve o agregado como decimal textual exato, e a interface formata com
+`BigInt` para preservar centavos e totais maiores que `Number` representa sem
+perda. A tabela informa como navegar horizontalmente no celular.
+
+Validação: `.\mvnw.cmd -o verify` passou com 71 testes rápidos e 36 integrados
+em PostgreSQL 16.15 descartável, aplicando V1–V8. `npm test --prefix frontend`
+passou (72), `npm run build --prefix frontend` passou, e a navegação Edge passou
+20/20 cenários em 156.0.4314.50, incluindo dívida de 65 dias, filtro por limite,
+limpeza do período, precisão do total e viewport mobile de 390/360 px. Capturas
+revisadas em `.cache/navegacao-1793191742197/`. Nenhum banco ou volume operacional
+foi usado. O histórico de entregas mantém período obrigatório; os limites novos
+se aplicam à consulta de pendências.
+
 ## Revalidação — 28/10/2026
 
 Registro da validação anterior à paginação independente e à idempotência; os

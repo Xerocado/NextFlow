@@ -26,7 +26,7 @@ test('cliente HTTP integra criação, listagem, detalhe e recebimento com CSRF p
     for await (const parte of req) body += parte
     chamadas.push({ url: req.url, method: req.method, csrf: req.headers['x-csrf-token'], chave: req.headers['idempotency-key'], body: body ? JSON.parse(body) : null })
     res.setHeader('Content-Type', 'application/json')
-    res.end(JSON.stringify(req.url === '/api/auth/csrf' ? { headerName: 'X-CSRF-TOKEN', token: 'teste' } : req.method === 'POST' ? { id: 'registro' } : req.url.includes('?') ? { itens: [], total: 0 } : { entrega: { id: 'registro' }, pagamentos: [] }))
+    res.end(JSON.stringify(req.url === '/api/auth/csrf' ? { headerName: 'X-CSRF-TOKEN', token: 'teste' } : req.method === 'POST' ? { id: 'registro' } : req.url.includes('?') ? { itens: [], total: 0, totalSaldoPendente: '0.00' } : { entrega: { id: 'registro' }, pagamentos: [] }))
   })
   await new Promise((resolve, reject) => { server.once('error', reject); server.listen(0, '127.0.0.1', resolve) })
   globalThis.fetch = (url, init) => {
@@ -49,6 +49,9 @@ test('cliente HTTP integra criação, listagem, detalhe e recebimento com CSRF p
     assert.equal(chamadas[5].csrf, 'teste')
     assert.equal(chamadas[5].chave, 'f80b0c87-7dd4-40b3-b0ed-088f8d08a6bc')
     assert.deepEqual(chamadas[5].body, { data: '2026-01-01', valor: '2.50' })
+    await listarEntregas('a/b', null, null, true, 0)
+    assert.equal(chamadas[6].url, '/api/estabelecimentos/a%2Fb/entregas?pendentes=true&pagina=0&tamanho=20')
+    await assert.rejects(listarEntregas('a/b', null, null, false), /Informe o início e o fim/)
   } finally { globalThis.fetch = original; await new Promise(resolve => server.close(resolve)) }
 })
 

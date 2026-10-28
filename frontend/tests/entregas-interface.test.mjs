@@ -57,7 +57,10 @@ test('telas de entregas reutilizam painéis e iniciam escritas bloqueadas durant
 
 test('pendências deixam explícito o período de entregas e não exibem novo cadastro', () => {
   const html = renderToStaticMarkup(React.createElement(Entregas, { empresaId: 'empresa', pendentes: true }))
-  assert.match(html, /Amplie o período para consultar entregas antigas/)
+  assert.match(html, /Sem datas preenchidas, você vê todas as pendências, inclusive as antigas/)
+  assert.match(html, /Entrega a partir de/)
+  assert.match(html, /Entrega até/)
+  assert.match(html, /todas as pendências/)
   assert.doesNotMatch(html, /Registrar entrega/)
   assert.match(html, /Atualizar registros/)
 })

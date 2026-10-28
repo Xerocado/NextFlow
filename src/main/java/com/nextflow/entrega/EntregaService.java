@@ -1,5 +1,6 @@
 package com.nextflow.entrega;
 import java.time.*;
+import java.math.RoundingMode;
 import java.util.*;
 import java.util.function.Function;
 import com.nextflow.cliente.*;
@@ -77,11 +78,13 @@ public class EntregaService {
     @Transactional(readOnly=true)
     public Pagina listar(UUID usuario, UUID empresa, LocalDate inicio, LocalDate fim, boolean pendentes, int pagina, int tamanho) {
         autorizar(usuario,empresa,false);
-        if(inicio==null || fim==null || inicio.isAfter(fim) || pagina<0 || tamanho<1 || tamanho>100)
-            throw new IllegalArgumentException("Informe periodo valido, pagina a partir de zero e tamanho entre 1 e 100.");
+        if((!pendentes && (inicio==null || fim==null)) || (inicio!=null && fim!=null && inicio.isAfter(fim))
+                || pagina<0 || tamanho<1 || tamanho>100)
+            throw new IllegalArgumentException("Informe um periodo valido, pagina a partir de zero e tamanho entre 1 e 100.");
         var itens=entregas.listar(empresa,inicio,fim,pendentes,PageRequest.of(pagina,tamanho));
-        return new Pagina(itens.map(Entrega::resposta).getContent(),pagina,tamanho,itens.getTotalElements());
+        var saldoPendente=entregas.totalSaldoPendente(empresa,inicio,fim).setScale(2, RoundingMode.UNNECESSARY);
+        return new Pagina(itens.map(Entrega::resposta).getContent(),pagina,tamanho,itens.getTotalElements(),saldoPendente.toPlainString());
     }
     public record Detalhe(Entrega.Resposta entrega,List<Pagamento.Resposta> pagamentos) { }
-    public record Pagina(List<Entrega.Resposta> itens,int pagina,int tamanho,long total) { }
+    public record Pagina(List<Entrega.Resposta> itens,int pagina,int tamanho,long total,String totalSaldoPendente) { }
 }
