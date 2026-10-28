@@ -1,3 +1,5 @@
+import { confirmarSessao } from './sessao.ts'
+
 export interface Perfil {
   id: string
   email: string
@@ -66,6 +68,7 @@ export async function entrar(email: string, senha: string): Promise<Perfil> {
   }
   const perfil = await consultarSessao()
   if (!perfil) throw new Error('Não foi possível manter sua sessão. Tente entrar novamente.')
+  confirmarSessao()
   return perfil
 }
 
@@ -74,9 +77,9 @@ export async function sair(): Promise<void> {
     await requisitar('logout', { method: 'POST', headers: await cabecalhoCsrf() })
   } catch (erro) {
     // Uma sessão já invalidada também equivale a estar desconectado.
-    if (erro instanceof ApiError && erro.status === 401) return
-    throw erro
+    if (!(erro instanceof ApiError && erro.status === 401)) throw erro
   }
+  confirmarSessao()
 }
 
 export async function solicitarRecuperacao(email: string): Promise<void> {

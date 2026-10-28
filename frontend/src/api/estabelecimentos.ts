@@ -1,4 +1,5 @@
 import { prepararDadosEmpresa } from '../validacaoEmpresa.ts'
+import { fetchAutenticado } from './sessao.ts'
 
 export interface DadosEmpresa {
   atividade: string; telefone: string; cep: string; logradouro: string; numero: string | null;
@@ -9,7 +10,7 @@ export interface EmpresaSalva { id: string; nome: string; ativo: boolean; moeda:
 async function requisitar(caminho: string, init: RequestInit = {}) {
   let resposta: Response
   try {
-    resposta = await fetch(caminho, { ...init, credentials: 'same-origin', cache: 'no-store',
+    resposta = await fetchAutenticado(caminho, { ...init, credentials: 'same-origin', cache: 'no-store',
       signal: init.signal ? AbortSignal.any([init.signal, AbortSignal.timeout(10000)]) : AbortSignal.timeout(10000) })
   } catch { throw new Error('Não foi possível conectar. Confira sua conexão e tente novamente.') }
   if (!resposta.ok) {

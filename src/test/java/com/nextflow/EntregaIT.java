@@ -5,6 +5,8 @@ import java.time.*;
 import java.util.*;
 import java.util.concurrent.*;
 import com.nextflow.entrega.*;
+import com.nextflow.cliente.*;
+import com.nextflow.autenticacao.UsuarioAutenticado;
 import com.nextflow.estabelecimento.*;
 import com.nextflow.gasto.*;
 import com.nextflow.movimento.MovimentoService;
@@ -12,12 +14,21 @@ import com.nextflow.usuario.*;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
+import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.support.TransactionTemplate;
+import jakarta.persistence.EntityManager;
 import org.testcontainers.junit.jupiter.*;
 import org.testcontainers.postgresql.PostgreSQLContainer;
 import static org.assertj.core.api.Assertions.*;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.*;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 @SpringBootTest
+@AutoConfigureMockMvc
 @Testcontainers
 class EntregaIT {
     @Container @ServiceConnection
@@ -27,6 +38,10 @@ class EntregaIT {
     @Autowired UsuarioRepository usuarios;
     @Autowired GastoService gastos;
     @Autowired MovimentoService movimento;
+    @Autowired ClienteService clientes;
+    @Autowired MockMvc mvc;
+    @Autowired PlatformTransactionManager transacoes;
+    @Autowired EntityManager entityManager;
 
     Usuario usuario() {
         return usuarios.saveAndFlush(new Usuario("Teste", UUID.randomUUID()+"@example.test", "hash-ficticio", Instant.EPOCH));
@@ -83,5 +98,138 @@ class EntregaIT {
         var detalhe = entregas.consultar(dono.getId(), empresa.id(), entrega.id());
         assertThat(detalhe.pagamentos()).hasSize(1);
         assertThat(detalhe.entrega().saldoPendente()).isEqualByComparingTo("50");
+    }
+
+    @Test void centavosQuitacaoPosteriorETotaisIndependemDaPagina() {
+        var dono = usuario();
+        var empresa = empresas.criar(dono.getId(), "Centavos");
+        var dia = LocalDate.now(ZoneId.of("America/Sao_Paulo"));
+        var entrega = entregas.criar(dono.getId(), empresa.id(), new EntregaEntrada(
+                dia.minusDays(1), null, null, BigDecimal.ONE, new BigDecimal("0.30"), false, null));
+        entregas.receber(dono.getId(), empresa.id(), entrega.id(), new PagamentoEntrada(dia, new BigDecimal("0.10")));
+        assertThat(entregas.consultar(dono.getId(), empresa.id(), entrega.id()).entrega().saldoPendente())
+                .isEqualByComparingTo("0.20");
+        entregas.receber(dono.getId(), empresa.id(), entrega.id(), new PagamentoEntrada(dia, new BigDecimal("0.20")));
+        gastos.criar(dono.getId(), empresa.id(), new GastoEntrada("A", new BigDecimal("0.10"), dia, null, null));
+        gastos.criar(dono.getId(), empresa.id(), new GastoEntrada("B", new BigDecimal("0.05"), dia, null, null));
+
+        var primeira = movimento.consultar(dono.getId(), empresa.id(), dia, 0, 1);
+        var segunda = movimento.consultar(dono.getId(), empresa.id(), dia, 1, 1);
+        for (var resumo : List.of(primeira, segunda)) {
+            assertThat(resumo.totalRecebido()).isEqualByComparingTo("0.30");
+            assertThat(resumo.totalGasto()).isEqualByComparingTo("0.15");
+            assertThat(resumo.saldoDoDia()).isEqualByComparingTo("0.15");
+            assertThat(resumo.recebimentos().total()).isEqualTo(2);
+            assertThat(resumo.recebimentos().itens()).hasSize(1);
+            assertThat(resumo.quantidadeEntregas()).isZero();
+        }
+        assertThat(primeira.recebimentos().itens().getFirst().id())
+                .isNotEqualTo(segunda.recebimentos().itens().getFirst().id());
+        assertThat(movimento.consultar(dono.getId(), empresa.id(), dia.minusDays(1), 0, 1).totalRecebido()).isZero();
+        assertThat(entregas.consultar(dono.getId(), empresa.id(), entrega.id()).pagamentos()).hasSize(2);
+        assertThat(entregas.consultar(dono.getId(), empresa.id(), entrega.id()).entrega().saldoPendente()).isZero();
+        assertThat(entregas.listar(dono.getId(), empresa.id(), dia.minusDays(1), dia, true, 0, 1).total()).isZero();
+    }
+
+    @Test void rejeicoesNaoAlteramSaldoNemCriamRecebimento() {
+        var dono = usuario();
+        var empresa = empresas.criar(dono.getId(), "Rejeicoes");
+        var dia = LocalDate.now(ZoneId.of("America/Sao_Paulo"));
+        var entrega = entregas.criar(dono.getId(), empresa.id(), entrada(dia, false));
+        for (var pagamento : List.of(
+                new PagamentoEntrada(dia.plusDays(1), BigDecimal.ONE),
+                new PagamentoEntrada(dia, new BigDecimal("150.01")),
+                new PagamentoEntrada(dia, new BigDecimal("0.001")),
+                new PagamentoEntrada(dia, BigDecimal.ZERO))) {
+            assertThatIllegalArgumentException().isThrownBy(() -> entregas.receber(dono.getId(), empresa.id(), entrega.id(), pagamento));
+        }
+        var gratis = entregas.criar(dono.getId(), empresa.id(), entrada(dia, true));
+        assertThatIllegalArgumentException().isThrownBy(() -> entregas.receber(dono.getId(), empresa.id(), gratis.id(),
+                new PagamentoEntrada(dia, BigDecimal.ONE)));
+        assertThat(entregas.consultar(dono.getId(), empresa.id(), entrega.id()).entrega().saldoPendente()).isEqualByComparingTo("150");
+        assertThat(entregas.consultar(dono.getId(), empresa.id(), entrega.id()).pagamentos()).isEmpty();
+        assertThat(entregas.consultar(dono.getId(), empresa.id(), gratis.id()).entrega().saldoPendente()).isZero();
+        assertThat(entregas.consultar(dono.getId(), empresa.id(), gratis.id()).pagamentos()).isEmpty();
+        assertThat(movimento.consultar(dono.getId(), empresa.id(), dia, 0, 1).totalRecebido()).isZero();
+    }
+
+    @Test void limiteMonetarioPersisteExatoEAgregadoPodeUltrapassaLo() {
+        var dono = usuario();
+        var empresa = empresas.criar(dono.getId(), "Limites");
+        var dia = LocalDate.now(ZoneId.of("America/Sao_Paulo"));
+        var limite = new BigDecimal("999999999999.99");
+        for (int i = 0; i < 2; i++) {
+            var entrega = entregas.criar(dono.getId(), empresa.id(), new EntregaEntrada(
+                    dia, null, null, BigDecimal.ONE, limite, false, null));
+            entregas.receber(dono.getId(), empresa.id(), entrega.id(), new PagamentoEntrada(dia, limite));
+            assertThat(entregas.consultar(dono.getId(), empresa.id(), entrega.id()).entrega().valorPago()).isEqualByComparingTo(limite);
+        }
+        assertThatIllegalArgumentException().isThrownBy(() -> entregas.criar(dono.getId(), empresa.id(),
+                new EntregaEntrada(dia, null, null, BigDecimal.ONE, new BigDecimal("1000000000000.00"), false, null)));
+        var resumo = movimento.consultar(dono.getId(), empresa.id(), dia, 0, 1);
+        assertThat(resumo.totalEntregas()).isEqualByComparingTo("1999999999999.98");
+        assertThat(resumo.totalRecebido()).isEqualByComparingTo("1999999999999.98");
+        assertThat(resumo.quantidadeEntregas()).isEqualTo(2);
+    }
+
+    @Test void rollbackDesfazPagamentoESaldoMesmoDepoisDoFlush() {
+        var dono = usuario();
+        var empresa = empresas.criar(dono.getId(), "Rollback");
+        var dia = LocalDate.now(ZoneId.of("America/Sao_Paulo"));
+        var entrega = entregas.criar(dono.getId(), empresa.id(), entrada(dia, false));
+        var falha = new IllegalStateException("Falha simulada apos escrita");
+        assertThatThrownBy(() -> new TransactionTemplate(transacoes).executeWithoutResult(status -> {
+            entregas.receber(dono.getId(), empresa.id(), entrega.id(), new PagamentoEntrada(dia, new BigDecimal("50.25")));
+            entityManager.flush();
+            entityManager.clear();
+            var dentro = entregas.consultar(dono.getId(), empresa.id(), entrega.id());
+            assertThat(dentro.pagamentos()).hasSize(1);
+            assertThat(dentro.entrega().valorPago()).isEqualByComparingTo("50.25");
+            throw falha;
+        })).isSameAs(falha);
+        var depois = entregas.consultar(dono.getId(), empresa.id(), entrega.id());
+        assertThat(depois.pagamentos()).isEmpty();
+        assertThat(depois.entrega().valorPago()).isZero();
+        assertThat(depois.entrega().saldoPendente()).isEqualByComparingTo("150");
+        assertThat(movimento.consultar(dono.getId(), empresa.id(), dia, 0, 1).totalRecebido()).isZero();
+    }
+
+    @Test void clienteCadastradoPreservaNomeHistoricoERejeitaOutraEmpresa() {
+        var dono = usuario();
+        var empresa = empresas.criar(dono.getId(), "Cliente A");
+        var outra = empresas.criar(dono.getId(), "Cliente B");
+        var dia = LocalDate.now(ZoneId.of("America/Sao_Paulo"));
+        var cliente = clientes.criar(dono.getId(), empresa.id(), new ClienteEntrada("Nome original", null, null));
+        var entrada = new EntregaEntrada(dia, cliente.id(), null, BigDecimal.ONE, BigDecimal.TEN, false, null);
+        var entrega = entregas.criar(dono.getId(), empresa.id(), entrada);
+        clientes.atualizar(dono.getId(), empresa.id(), cliente.id(), new ClienteEntrada("Novo nome", null, null));
+        assertThat(entregas.consultar(dono.getId(), empresa.id(), entrega.id()).entrega().identificacao()).isEqualTo("Nome original");
+        assertThatThrownBy(() -> entregas.criar(dono.getId(), outra.id(), entrada)).isInstanceOf(ClienteNaoEncontradoException.class);
+        assertThat(entregas.listar(dono.getId(), outra.id(), dia, dia, false, 0, 1).total()).isZero();
+    }
+
+    @Test void httpIsolaDetalhesListasTotaisEEscritas() throws Exception {
+        var dono = usuario();
+        var outro = usuario();
+        var empresa = empresas.criar(dono.getId(), "Privada");
+        var outra = empresas.criar(dono.getId(), "Mesmo dono");
+        var dia = LocalDate.now(ZoneId.of("America/Sao_Paulo"));
+        var entrega = entregas.criar(dono.getId(), empresa.id(), entrada(dia, false));
+        var base = "/api/estabelecimentos/" + empresa.id();
+        var corpo = "{\"data\":\"" + dia + "\",\"valor\":\"1.00\",\"usuarioId\":\"" + dono.getId() + "\"}";
+        for (var rota : List.of(base + "/entregas/" + entrega.id(), base + "/entregas", base + "/movimento")) {
+            mvc.perform(get(rota).with(user(new UsuarioAutenticado(outro)))
+                    .param("inicio", dia.toString()).param("fim", dia.toString()).param("data", dia.toString()))
+                    .andExpect(status().isNotFound());
+        }
+        mvc.perform(post(base + "/entregas/" + entrega.id() + "/pagamentos")
+                .with(user(new UsuarioAutenticado(outro))).with(csrf()).contentType("application/json").content(corpo))
+                .andExpect(status().isNotFound());
+        var rotaOutra = "/api/estabelecimentos/" + outra.id() + "/entregas/" + entrega.id();
+        mvc.perform(get(rotaOutra).with(user(new UsuarioAutenticado(dono)))).andExpect(status().isNotFound());
+        mvc.perform(post(rotaOutra + "/pagamentos").with(user(new UsuarioAutenticado(dono))).with(csrf())
+                .contentType("application/json").content(corpo)).andExpect(status().isNotFound());
+        assertThat(entregas.consultar(dono.getId(), empresa.id(), entrega.id()).pagamentos()).isEmpty();
+        assertThat(entregas.consultar(dono.getId(), empresa.id(), entrega.id()).entrega().saldoPendente()).isEqualByComparingTo("150");
     }
 }

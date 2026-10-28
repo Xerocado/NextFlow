@@ -1,5 +1,6 @@
 import { validarData } from './entregas'
 import type { Pagamento } from './entregas'
+import { fetchAutenticado } from './sessao.ts'
 
 export interface MovimentoDia {
   data: string
@@ -17,7 +18,7 @@ export async function consultarMovimento(empresa: string, data: string, pagina =
   const parametros = new URLSearchParams({ data, pagina: String(pagina), tamanho: '20' })
   let resposta: Response
   try {
-    resposta = await fetch(`/api/estabelecimentos/${encodeURIComponent(empresa)}/movimento?${parametros}`, {
+    resposta = await fetchAutenticado(`/api/estabelecimentos/${encodeURIComponent(empresa)}/movimento?${parametros}`, {
       credentials: 'same-origin', cache: 'no-store',
       signal: signal ? AbortSignal.any([signal, AbortSignal.timeout(10000)]) : AbortSignal.timeout(10000),
     })

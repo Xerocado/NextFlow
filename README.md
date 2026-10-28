@@ -123,7 +123,7 @@ flowchart LR
 - **Esquema:** Flyway versiona as mudanças; Hibernate valida as tabelas.
 - **Interface:** cookie de sessão HttpOnly e proteção CSRF; o proxy Vite encaminha `/api` ao backend no desenvolvimento.
 
-A validação integrada das consultas e do controle concorrente com PostgreSQL permanece pendente. O acompanhamento técnico está em [estado atual](docs/estado-atual.md).
+A revalidação de 28/10/2026 passou com 71 testes rápidos e 31 integrados em PostgreSQL descartável, build frontend e 18 cenários de navegação em Edge, incluindo larguras desktop/mobile. Esses resultados não declaram prontidão para produção. Comandos, reprodução e limites estão no [guia de navegação isolada](docs/validacao-interface.md) e no [estado atual](docs/estado-atual.md).
 
 <details>
 <summary><strong>Organização do projeto</strong></summary>
@@ -262,6 +262,7 @@ Use `localhost` consistentemente para preservar o contexto dos cookies. Crie sua
 | [Gastos](docs/gastos.md) | Lançamentos e totais por data |
 | [Entregas e movimento](docs/entregas.md) | Pagamentos, saldo pendente e resumo diário |
 | [Estado atual](docs/estado-atual.md) | Histórico de decisões, validações e pendências técnicas |
+| [Validação no navegador](docs/validacao-interface.md) | Roteiro isolado com Playwright, PostgreSQL descartável e SMTP local |
 
 ### Contratos principais
 
@@ -351,6 +352,8 @@ A suíte cobre regras monetárias, entradas, autorização por empresa, sessão/
 
 Os testes frontend usam fetch simulado, servidor HTTP local de teste e renderização estática. Eles não substituem a validação do fluxo autenticado no navegador. Resultados executados e verificações pendentes estão em [estado atual](docs/estado-atual.md); relatórios Java são gerados em `target/surefire-reports/` e `target/failsafe-reports/`.
 
+O roteiro opcional `node scripts/validar-interface.mjs` valida a interface com API real, PostgreSQL em memória temporária e Mailpit local. Exige Playwright e navegador já instalados, JAR atualizado e portas próprias livres; não usa o `.env` operacional. Consulte os pré-requisitos e comandos no [guia](docs/validacao-interface.md).
+
 ## Roadmap
 
 ### Evolução do produto
@@ -364,7 +367,8 @@ Os testes frontend usam fetch simulado, servidor HTTP local de teste e renderiza
 
 ### Engenharia e regras a definir
 
-- [ ] Concluir a validação integrada e do fluxo completo no navegador.
+- [x] Validar a base integrada em PostgreSQL descartável e executar o build frontend.
+- [x] Validar o fluxo autenticado no Edge com larguras desktop/mobile e respostas atrasadas ao trocar empresa, no escopo documentado.
 - [ ] Idempotência para evitar duplicidade em reenvios.
 - [ ] Melhorar a consulta inicial de dívidas antigas.
 - [ ] Definir arquivamento/exclusão de empresas e correções/estornos com preservação do histórico.

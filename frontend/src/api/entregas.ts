@@ -1,3 +1,5 @@
+import { fetchAutenticado } from './sessao.ts'
+
 export interface EntregaEntrada { data: string; clienteId: string | null; identificacaoAvulso: string; litros: string; valorTotal: string; semCobranca: boolean; motivo: string }
 export interface Entrega { id: string; clienteId: string | null; identificacao: string | null; data: string; litros: number; valorTotal: number; valorPago: number; saldoPendente: number; semCobranca: boolean; motivo: string | null }
 export interface Pagamento { id: string; entregaId: string; data: string; valor: number }
@@ -37,7 +39,7 @@ export function prepararPagamento(data: string, valor: string, saldo?: string) {
 }
 async function requisitar(url: string, init: RequestInit = {}) {
   let resposta: Response
-  try { resposta = await fetch(url, { ...init, credentials: 'same-origin', cache: 'no-store', signal: init.signal ? AbortSignal.any([init.signal, AbortSignal.timeout(10000)]) : AbortSignal.timeout(10000) }) }
+  try { resposta = await fetchAutenticado(url, { ...init, credentials: 'same-origin', cache: 'no-store', signal: init.signal ? AbortSignal.any([init.signal, AbortSignal.timeout(10000)]) : AbortSignal.timeout(10000) }) }
   catch { throw new Error('Não foi possível conectar. Atualize e confira os registros antes de repetir uma operação.') }
   if (!resposta.ok) throw new Error(resposta.status === 401 ? 'Sua sessão expirou. Entre novamente.' : resposta.status === 403 ? 'A sessão de segurança expirou ou você não tem permissão.' : resposta.status === 404 ? 'Empresa, cliente ou entrega não encontrado, ou sem permissão.' : resposta.status === 400 ? 'Confira os campos, a data e o saldo atualizado da entrega.' : 'Não foi possível concluir. Atualize e confira os registros antes de repetir uma operação.')
   return resposta.json()

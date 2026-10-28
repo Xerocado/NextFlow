@@ -6,6 +6,8 @@ import ThemeSwitch from './ThemeSwitch'
 import RecuperarSenha from './RecuperarSenha'
 import CadastroConta from './CadastroConta'
 import Marca from './components/Marca'
+import PularConteudo from './components/PularConteudo'
+import { SESSAO_EXPIRADA } from './api/sessao'
 import Workspace from './Workspace'
 
 function Cadeado() {
@@ -78,7 +80,7 @@ function Login({ aoEntrar, aviso }: { aoEntrar: (perfil: Perfil) => void; aviso:
 
   return <div className="login-layout">
     <Apresentacao />
-    <main className="acesso" id="conteudo">
+    <main className="acesso" id="conteudo" tabIndex={-1}>
       <div className="acesso-topo"><span>Seu espaço de gestão</span><ThemeSwitch /></div>
       <div className="formulario-container">
         <div className="icone-acesso"><Cadeado /></div>
@@ -121,10 +123,18 @@ export default function App() {
     finally { setCarregando(false) }
   }
   useEffect(() => { void carregar() }, [])
+  useEffect(() => {
+    const expirar = () => {
+      setPerfil(null)
+      setAviso('Sua sessão expirou. Entre novamente para continuar. Confira os registros antes de repetir uma operação.')
+    }
+    window.addEventListener(SESSAO_EXPIRADA, expirar)
+    return () => window.removeEventListener(SESSAO_EXPIRADA, expirar)
+  }, [])
   useEffect(() => { if (!perfil) document.title = 'Entrar | NextFlow' }, [perfil])
 
   if (carregando || erro) return <main className="estado-inicial"><Marca /><div role="status"><h1>{carregando ? 'Preparando seu espaço…' : 'Não foi possível conectar'}</h1><p>{carregando ? 'Verificando sua sessão com segurança.' : erro}</p>{erro ? <button className="botao-principal" onClick={carregar}>Tentar novamente</button> : null}</div></main>
-  return <><a className="pular" href="#conteudo">Ir para o conteúdo</a>{perfil
+  return <><PularConteudo />{perfil
     ? <Workspace perfil={perfil} aoSair={() => { setPerfil(null); setAviso('Você saiu da sua conta com segurança.') }} />
     : <Login aoEntrar={setPerfil} aviso={aviso} />}</>
 }

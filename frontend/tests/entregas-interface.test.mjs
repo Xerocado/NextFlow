@@ -26,8 +26,23 @@ const hooks = registerHooks({
 })
 const { default: Entregas } = await import('../src/Entregas.tsx')
 const { default: Movimento } = await import('../src/Movimento.tsx')
+const { default: PularConteudo } = await import('../src/components/PularConteudo.tsx')
 const { consultarMovimento } = await import('../src/api/movimento.ts')
 hooks.deregister()
+
+test('link de salto cancela a navegação por hash e solicita foco no conteúdo', () => {
+  const acoes = []
+  const link = PularConteudo()
+  assert.equal(link.props.href, '#conteudo')
+  link.props.onClick({
+    currentTarget: { ownerDocument: { getElementById(id) {
+      assert.equal(id, 'conteudo')
+      return { focus() { acoes.push('foco') } }
+    } } },
+    preventDefault() { acoes.push('cancelar-navegacao') },
+  })
+  assert.deepEqual(acoes, ['cancelar-navegacao', 'foco'])
+})
 
 test('telas de entregas reutilizam painéis e iniciam escritas bloqueadas durante consulta', () => {
   const html = renderToStaticMarkup(React.createElement(Entregas, { empresaId: 'empresa' }))

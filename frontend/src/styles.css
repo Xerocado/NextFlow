@@ -230,6 +230,10 @@ tbody tr:hover { background: var(--paper); }
 .nota-metodo p { color: var(--muted); font-size: 14px; line-height: 1.7; }
 .workspace-rodape { display: flex; justify-content: space-between; gap: 16px; padding-top: 24px; margin-top: 32px; border-top: 1px solid var(--border); font-size: 11px; color: var(--muted); }
 .topo-mobile { display: none; }
+.identidade-mobile { min-width: 0; }
+.empresa-mobile { display: grid; gap: 4px; margin: 12px 0 0; font-size: 13px; overflow-wrap: anywhere; }
+.empresa-mobile span { font-size: 11px; color: var(--muted); }
+.topo-mobile>button { flex-shrink: 0; }
 
 @media (max-width: 1200px) {
   .metricas { grid-template-columns: repeat(2, minmax(0, 1fr)); }
@@ -239,7 +243,7 @@ tbody tr:hover { background: var(--paper); }
 }
 @media (max-width: 900px) {
   .workspace { grid-template-columns: minmax(0, 1fr); }
-  .topo-mobile { display: flex; justify-content: space-between; align-items: center; padding: 16px 24px; border-bottom: 1px solid var(--border); }
+  .topo-mobile { display: flex; justify-content: space-between; align-items: center; gap: 16px; padding: 16px 24px; border-bottom: 1px solid var(--border); }
   .sidebar { display: none; }
   .sidebar.menu-aberto { display: flex; position: static; height: auto; border-bottom: 1px solid var(--border); border-right: 0; }
   .sidebar>.marca, .sidebar-rodape { display: none; }

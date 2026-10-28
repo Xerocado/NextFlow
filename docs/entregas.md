@@ -49,11 +49,23 @@ Nao houve nova migracao alem da V7. Testes de integracao `EntregaIT` adicionados
 para pagamentos tardios, isolamento e concorrencia; resultados desta execucao
 ficam em estado-atual.md.
 
-Validacao mais recente: 71 testes Java e 62 frontend passaram. EntregaIT falhou
-antes dos cenarios por acesso negado ao pipe Docker; queries PostgreSQL e
-concorrencia real nao validadas. TypeScript passou e build Vite falhou por
-spawn EPERM. Navegador ainda nao validado. Nenhuma migracao aplicada ao banco
-local pelo agente. Detalhes em [estado atual](estado-atual.md).
+Validação de 27/10/2026: a suíte integrada inicial passou com 25 testes em
+PostgreSQL descartável. EntregaIT foi ampliado de dois para oito cenários e
+reexecutado com sucesso, junto dos 71 testes rápidos. Os seis cenários novos
+cobrem centavos/quitação/totais entre páginas, rejeições sem escrita, limite
+monetário e agregados, rollback após flush, cliente cadastrado com nome histórico
+e isolamento HTTP. As migrações V1–V7 foram aplicadas e validadas somente nos
+bancos temporários; nenhum banco operacional foi usado.
+
+Frontend, revalidado em 28/10: 68 testes e build TypeScript/Vite passaram.
+18 cenários de navegador com API real e banco descartável foram aprovados,
+incluindo pagamento parcial/posterior, rejeições, totais, foco e respostas atrasadas
+após troca de empresa. Validado Edge com larguras responsivas desktop/mobile;
+reprodução e limites no [guia](validacao-interface.md). O teste de rollback usa
+transação real e falha simulada; os testes HTTP Java continuam usando MockMvc.
+Nesta revalidação, `.\mvnw.cmd -o verify` passou com 71 testes rápidos e 31
+integrados, no total aplicando V1–V7 aos bancos temporários. Detalhes em
+[estado atual](estado-atual.md).
 
 Validacao da primeira etapa: `EntregaServiceTest` e `EntregaWebTest` cobrem regras financeiras,
 autorizacao, sessao, CSRF e identidade da sessao. Suite rapida executada com

@@ -1,5 +1,46 @@
 # Interface do NextFlow
 
+## Navegação isolada — revalidação de 28/10/2026
+
+Os 68 testes frontend, o build de produção e 18 cenários Edge foram executados
+novamente. A integração `.\mvnw.cmd -o verify` passou com 71 testes rápidos e
+31 integrados em PostgreSQL descartável, com as migrações V1–V7. O Edge usado
+foi 156.0.4314.50; detalhes, comandos e limites estão em
+[docs/validacao-interface.md](../docs/validacao-interface.md).
+
+## Navegação isolada — continuação de 27/10/2026
+
+18 cenários de navegador aprovados com Playwright/Edge headless, API real,
+PostgreSQL descartável e Mailpit local. Incluem pagamentos, totais entre páginas,
+isolamento, respostas atrasadas nas quatro telas, foco real, tema escuro, sete
+seções em 390/360 px e logout. Capturas revisadas. A simulação de sessão inválida
+usa logout no servidor, sem aguardar os 30 minutos do timeout.
+
+Corrigidos o contexto da empresa no cabeçalho mobile e o retorno ao login após
+401. O aviso orienta a conferir os registros; nenhuma escrita é repetida ao
+reautenticar. Respostas antigas não encerram a sessão nova. Cancelamentos e
+mensagens dos clientes HTTP foram preservados.
+
+`npm test --prefix frontend`: 68 aprovados. `npm run build --prefix frontend`:
+TypeScript/Vite aprovados. Roteiro e limites no [guia](../docs/validacao-interface.md).
+As seções seguintes registram os resultados anteriores desta data.
+
+## Validação de 27/10/2026
+
+`npm test --prefix frontend`: 63 testes aprovados. `npm run build --prefix frontend`:
+TypeScript e Vite aprovados após execução autorizada fora do sandbox, que bloqueava
+o esbuild com `spawn EPERM`. Nenhuma dependência instalada.
+
+Corrigido o link **Ir para o conteúdo**: cancela a navegação padrão por hash e
+solicita foco no `main`, agora com `tabIndex={-1}`, preservando a seção atual.
+O novo teste verifica o handler com destino simulado; não comprova foco real.
+
+A integração backend com PostgreSQL descartável também passou. Navegação real,
+layout desktop/mobile e respostas atrasadas ao trocar empresa seguem pendentes:
+a ferramenta de controle não encontrou navegador/conexão nativa disponível.
+A API para navegação não foi iniciada. Detalhes e limites em
+[estado atual](../docs/estado-atual.md). Os resultados abaixo são históricos.
+
 Atualizacao de 21/10/2026: entregas e pagamentos integrados ao frontend,
 com a API existente e migracao V7. Veja [contrato](../docs/entregas.md).
 Caminho atual: C:\NextFlow.
@@ -132,8 +173,8 @@ npm run build
 ```
 
 Testes HTTP usam fetch simulado; nao comprovam banco nem interface no navegador.
-O build verifica TypeScript e gera dist. O ambiente do agente tem apresentado
-spawn EPERM no Vite/esbuild; confira os resultados atuais em docs/estado-atual.md.
+O build verifica TypeScript e gera dist. Em 27/10 passou fora do sandbox após
+bloqueio de execução do esbuild; confira os resultados em docs/estado-atual.md.
 Para avaliar visualmente: entrar, navegar pelas sete abas, cadastrar/selecionar
 empresa, conferir gastos do dia e sair. Verifique tambem tema escuro e celular.
 A fonte Inter vem de Google Fonts, com Segoe UI como alternativa sem rede.

@@ -1,5 +1,161 @@
 # Estado atual e continuidade — 19/10/2026
 
+## Revalidação — 28/10/2026
+
+Antes de abrir os próximos incrementos, repeti a validação da base na branch
+`feat/estabilidade-operacional`. `npm test --prefix frontend` passou com 68
+testes; `npm run build --prefix frontend` passou com TypeScript e Vite.
+`.\mvnw.cmd -o verify` passou com 71 testes rápidos e 31 integrados, todos
+sem falhas ou ignorados. Os testes integrados aplicaram V1–V7 em bancos
+PostgreSQL 16.15 temporários do Testcontainers. Uma execução anterior falhou
+porque o Docker Desktop estava parado; após autorização do mantenedor, ele foi
+iniciado somente para as verificações. Nenhum volume operacional foi alterado.
+
+`node scripts/validar-interface.mjs` também passou com 18 cenários em Edge
+156.0.4314.50, incluindo sessão/CSRF, entregas, pagamentos, isolamento,
+movimento, troca de empresa, SMTP local e viewports mobile. O build gerou JS de
+295,65 kB (87,44 kB gzip) e CSS de 19,48 kB (4,61 kB gzip). Capturas e logs
+ficaram em `.cache/navegacao-1793187917122/`, ignorado pelo Git.
+
+O Git remoto ainda não recebeu a branch; `gh` não está instalado. A publicação
+será feita por `git push` após revisar o conteúdo do commit. As mudanças locais
+preexistentes em `AGENTS.md`, `docs/plano-open-source-e-uso-real.md` e `end`
+continuam fora do escopo e dos commits.
+
+## Atualização — 27/10/2026 — navegação isolada e correções de interface
+
+Concluído o roteiro de navegação em Edge headless com backend real e PostgreSQL
+descartável: **18 cenários aprovados**, incluindo sete seções, pagamento parcial
+e posterior, gastos/totais, isolamento, foco por teclado, temas e larguras
+responsivas 390/360 px. Clientes, entregas, gastos e movimento também passaram
+com GET real atrasado até a troca de empresa.
+
+Dois defeitos reproduzidos e corrigidos: empresa ativa ausente no cabeçalho mobile
+e tela antiga mantida após 401 de sessão invalidada. Workspace/estilos agora
+mostram a empresa com menu fechado. App e `api/sessao.ts` conduzem ao login, sem
+repetir escrita; respostas 401 simultâneas/antigas não invalidam um novo login.
+Os cinco clientes HTTP de negócio usam esse tratamento preservando suas opções,
+cancelamento e mensagens. Login incorreto e 403 não disparam expiração.
+
+Novos arquivos: `scripts/validar-interface.mjs`, `frontend/e2e/fluxo.mjs`,
+`frontend/e2e/vite.config.ts`, `frontend/src/api/sessao.ts`,
+`frontend/tests/sessao.test.mjs` e [guia de reprodução](validacao-interface.md).
+O roteiro usa portas exclusivas (18080/15173), PostgreSQL em tmpfs e Mailpit
+local, sem volumes operacionais, `.env` ou credenciais herdadas. Nada foi instalado.
+Playwright já disponível foi autorizado pelo mantenedor após falha do controle
+nativo. A primeira execução completa reproduziu os defeitos; a final passou.
+
+Verificações desta continuação:
+
+- `.\mvnw.cmd -o '-DskipTests' package`: JAR gerado; não executa testes.
+- `npm test --prefix frontend`: 68 testes aprovados, incluindo cinco novos
+  para 401 concorrente/atrasado, cancelamento, 403/rede e senha incorreta.
+- `npm run build --prefix frontend`: TypeScript e Vite aprovados.
+- `node scripts/validar-interface.mjs`, com `PLAYWRIGHT_PACKAGE` apontando ao
+  pacote instalado: 18 cenários aprovados; saída zero.
+- Capturas desktop claro/escuro e mobile revisadas; processos e containers
+  temporários encerrados. Registros em `.cache/navegacao-1793105690092/`.
+
+A captura SMTP passou usando `--smtp-disable-rdns` somente no Mailpit de teste;
+timeouts/configuração de produção não foram alterados. A navegação anterior
+pendente ficou coberta no escopo do guia, com navegador real e viewports
+responsivos; não houve teste em aparelho físico ou espera pelo timeout da sessão.
+Java e migrações não mudaram; os resultados Java da etapa anterior permanecem
+identificados abaixo, sem nova execução da suíte. A base não está declarada
+pronta para operação: idempotência e preparação operacional continuam pendentes.
+
+Preservadas todas as alterações locais da etapa anterior, `AGENTS.md`, o plano
+open source e `end`. Nenhum stage, commit, instalação, deploy ou envio externo.
+Próximo incremento: definir o contrato de idempotência, antes da implementação.
+
+## Atualização — 27/10/2026 — validação da base existente
+
+Incremento de validação, sem novos módulos ou alteração de regras financeiras.
+Pasta confirmada: `C:\NextFlow`. Git já inicializado. Preservados `AGENTS.md`
+modificado e os arquivos não rastreados `docs/plano-open-source-e-uso-real.md`
+e `end`, encontrados antes do trabalho. Nenhum stage, commit, push ou deploy.
+
+### Resultados executados
+
+Ambiente observado: Temurin Java 21.0.12.1, Node 24.21.0, npm 11.19.0,
+Docker Server 29.8.2. A imagem local `postgres:16-alpine` executou PostgreSQL
+16.15. Dependências e imagens já estavam instaladas; nada foi instalado.
+
+| Comando | Resultado desta sessão |
+| --- | --- |
+| `.\mvnw.cmd -o test` | 71 testes rápidos aprovados |
+| `.\mvnw.cmd -o verify` | 71 rápidos e os 25 testes integrados então existentes aprovados |
+| `.\mvnw.cmd -o '-Dit.test=EntregaIT' verify` | Após ampliar EntregaIT: 71 rápidos e 8 integrados aprovados, incluindo seis novos |
+| `npm test --prefix frontend` | 63 testes aprovados após a correção, nenhum ignorado |
+| `npm run build --prefix frontend` | TypeScript e Vite aprovados após a correção |
+| `git diff --check` | Sem erros de whitespace |
+
+As duas execuções integradas cobrem 31 cenários distintos; não representam uma
+execução única de 31 testes. A suíte completa rodou antes da ampliação de
+EntregaIT; depois foi reexecutada a classe alterada e toda a suíte rápida.
+Não houve alteração do código backend de produção ou das migrações.
+
+O sandbox bloqueou acesso ao cache Maven, ao pipe Docker e a criação do esbuild
+(`spawn EPERM`). As execuções autorizadas fora do sandbox passaram, sem desativar
+locks, proteções ou modificar configuração persistente. Uma tentativa intermediária
+de `test-compile` também foi bloqueada pelo cache; o `verify` posterior compilou
+todos os testes. `-o` usa o cache Maven existente; uma máquina nova precisa obter
+as dependências antes de executar offline.
+
+Logs locais ignorados pelo Git: `.cache/validacao-backend.log`,
+`.cache/validacao-integracao.log`, `.cache/validacao-entregas.log`,
+`.cache/validacao-frontend.log` e `.cache/validacao-build.log`.
+Relatórios JUnit em `target/surefire-reports/` e `target/failsafe-reports/`.
+Bundle final: JS 294,98 kB (gzip 87,29 kB), CSS 19,26 kB (gzip 4,57 kB).
+Esses tamanhos não são uma medição de desempenho de navegação.
+
+### Evidências e correção
+
+| Fluxo prioritário | Evidência executada e alcance |
+| --- | --- |
+| Autenticação, sessão e CSRF | AutenticacaoIT: cadastro, login com token obtido da API, logout, recuperação com e-mail mock, revogação de sessão e concorrência; MockMvc com banco real descartável |
+| Empresas e clientes | EstabelecimentoIT e ClienteIT: persistência, paginação, autorização, identidade forjada e separação entre usuários/empresas |
+| Entregas e pagamentos | EntregaIT: avulso e cadastrado, sem cobrança, parcial, quitação posterior, excesso, data futura e preservação do nome histórico do cliente |
+| Datas e totais | EntregaIT e GastoIT: recebimento pela data efetiva, totais de todas as páginas e exclusão de outras datas/empresas |
+| Precisão | Centavos, limite de R$ 999.999.999.999,99 por lançamento e agregado acima desse limite verificados em BigDecimal/PostgreSQL; isso não comprova precisão de agregados extremos no frontend |
+| Concorrência e rollback | Dois pagamentos concorrentes não excedem o saldo; falha simulada após flush e releitura desfaz tanto o pagamento quanto o saldo na transação real |
+| Isolamento de entregas | HTTP via MockMvc: detalhe, listas, totais e recebimento negados a outro usuário; detalhe/recebimento negados sob outra empresa do mesmo dono |
+| Migrações | V1–V7 aplicadas nos PostgreSQL temporários; Flyway validou as sete e Hibernate validou o esquema |
+
+Defeito confirmado no código: o link `href="#conteudo"` alterava o hash usado
+pelas rotas; `secaoAtual` interpretava esse destino como seção desconhecida e
+selecionava Minha empresa. Extraído `components/PularConteudo.tsx`: o handler
+cancela a navegação e solicita foco no conteúdo; os elementos `main` de login e
+Workspace recebem `tabIndex={-1}` para aceitar foco programático sem entrar na
+sequência normal de Tab. Teste unitário verifica cancelamento e chamada de foco.
+Não é um teste de interação em navegador nem comprovação visual de acessibilidade.
+
+### Isolamento e limitações
+
+Todos os testes PostgreSQL usaram containers temporários de Testcontainers com
+`@ServiceConnection`, sem montagem do volume operacional. O envio de recuperação
+foi substituído por mock nos testes que o acionam. Nenhuma API para navegação foi
+iniciada, nenhum `.env` foi lido/alterado e não houve envio real de mensagens.
+
+Navegação desktop/mobile **não validada**: a ferramenta de controle retornou
+lista vazia de navegadores/apps e erro de conexão com o pipe nativo. Portanto,
+seleção da empresa na interface, efeitos/cliques, foco real, layout e troca de
+empresa com resposta atrasada continuam pendentes. A inspeção encontrou chaves
+por empresa e AbortController nos componentes, mas isso não substitui o teste
+de interação. Os testes frontend incluem material legado e mocks/renderização
+estática; o número total não representa cobertura do fluxo completo.
+
+Pendências preservadas: idempotência, consulta inicial de dívidas antigas,
+recuperação durável, sessão expirada na interface, contexto da empresa no mobile,
+consultas independentes ao paginar movimento e contrato exato para agregados
+monetários extremos. Estornos, novos papéis, veículos, licença e produção não
+entraram no incremento. A base ainda não está declarada pronta para uso real.
+
+Próximo passo: concluir navegação autenticada desktop/mobile em banco descartável,
+com SMTP fake/receptor local confirmado antes de iniciar a API, incluindo resposta
+atrasada ao trocar empresa e o link de salto. Depois, preparar o contrato de
+idempotência em entrega própria. As seções abaixo são registros históricos.
+
 ## Padronizacao do nome — 21/10/2026
 
 Nome do produto: NextFlow; identificador tecnico do banco em novas instalacoes:

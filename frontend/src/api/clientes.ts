@@ -1,3 +1,5 @@
+import { fetchAutenticado } from './sessao.ts'
+
 export interface ClienteEntrada { nome: string; telefone: string; observacao: string }
 export interface Cliente { id: string; nome: string; telefone: string | null; observacao: string | null }
 export interface ClientesPagina { itens: Cliente[]; pagina: number; tamanho: number; total: number }
@@ -15,7 +17,7 @@ export function prepararCliente(entrada: ClienteEntrada): ClienteEntrada {
 async function requisitar(url: string, init: RequestInit = {}) {
   let resposta: Response
   try {
-    resposta = await fetch(url, { ...init, credentials: 'same-origin', cache: 'no-store',
+    resposta = await fetchAutenticado(url, { ...init, credentials: 'same-origin', cache: 'no-store',
       signal: init.signal ? AbortSignal.any([init.signal, AbortSignal.timeout(10000)]) : AbortSignal.timeout(10000) })
   } catch { throw new Error('Não foi possível conectar. Atualize e confira a lista antes de salvar novamente.') }
   if (!resposta.ok) throw new Error(resposta.status === 401 ? 'Sua sessão expirou. Entre novamente.' :
