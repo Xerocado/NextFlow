@@ -32,7 +32,9 @@ async function requisitar(url: string, init: RequestInit = {}) {
   if (!resposta.ok) throw new Error(resposta.status === 401 ? 'Sua sessão expirou. Entre novamente.' :
     resposta.status === 403 ? 'A sessão de segurança expirou. Tente novamente.' :
     resposta.status === 404 ? 'Empresa não encontrada ou sem permissão.' :
-    resposta.status === 400 ? 'Confira os campos e os limites informados.' : 'Não foi possível concluir. Atualize a lista antes de tentar novamente.')
+    resposta.status === 400 ? 'Confira os campos e os limites informados.' :
+    resposta.status === 409 ? 'A chave de repetição já foi usada com outros dados. Confira os registros e revise o formulário antes de tentar novamente.' :
+    'Não foi possível concluir. Atualize a lista antes de tentar novamente.')
   return resposta
 }
 
@@ -40,9 +42,9 @@ const caminho = (empresa: string) => `/api/estabelecimentos/${encodeURIComponent
 export async function listarGastos(empresa: string, data: string, pagina = 0, signal?: AbortSignal): Promise<GastosDia> {
   return (await requisitar(`${caminho(empresa)}?data=${encodeURIComponent(data)}&pagina=${pagina}&tamanho=20`, { signal })).json()
 }
-export async function criarGasto(empresa: string, entrada: GastoEntrada): Promise<Gasto> {
+export async function criarGasto(empresa: string, entrada: GastoEntrada, chave?: string): Promise<Gasto> {
   const dados = prepararGasto(entrada)
   const csrf: { headerName: string; token: string } = await (await requisitar('/api/auth/csrf')).json()
   return (await requisitar(caminho(empresa), { method: 'POST',
-    headers: { [csrf.headerName]: csrf.token, 'Content-Type': 'application/json' }, body: JSON.stringify(dados) })).json()
+    headers: { [csrf.headerName]: csrf.token, 'Content-Type': 'application/json', ...(chave ? { 'Idempotency-Key': chave } : {}) }, body: JSON.stringify(dados) })).json()
 }

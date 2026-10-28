@@ -13,10 +13,16 @@ public class EntregaController {
     public EntregaController(EntregaService service) { this.service=service; }
     @PostMapping @ResponseStatus(HttpStatus.CREATED)
     public Entrega.Resposta criar(@AuthenticationPrincipal UsuarioAutenticado usuario, @PathVariable UUID empresaId,
-            @Valid @RequestBody EntregaEntrada entrada) { return service.criar(usuario.getId(),empresaId,entrada); }
+            @Valid @RequestBody EntregaEntrada entrada,
+            @RequestHeader(value="Idempotency-Key", required=false) UUID chave) {
+        return service.criar(usuario.getId(),empresaId,entrada,chave);
+    }
     @PostMapping("/{id}/pagamentos") @ResponseStatus(HttpStatus.CREATED)
     public Pagamento.Resposta receber(@AuthenticationPrincipal UsuarioAutenticado usuario, @PathVariable UUID empresaId,
-            @PathVariable UUID id, @Valid @RequestBody PagamentoEntrada entrada) { return service.receber(usuario.getId(),empresaId,id,entrada); }
+            @PathVariable UUID id, @Valid @RequestBody PagamentoEntrada entrada,
+            @RequestHeader(value="Idempotency-Key", required=false) UUID chave) {
+        return service.receber(usuario.getId(),empresaId,id,entrada,chave);
+    }
     @GetMapping("/{id}")
     public EntregaService.Detalhe consultar(@AuthenticationPrincipal UsuarioAutenticado usuario, @PathVariable UUID empresaId,
             @PathVariable UUID id) { return service.consultar(usuario.getId(),empresaId,id); }

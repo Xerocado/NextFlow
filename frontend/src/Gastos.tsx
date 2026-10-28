@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
 import type { FormEvent } from 'react'
-import { criarGasto, listarGastos } from './api/gastos'
+import { criarGasto, listarGastos, prepararGasto } from './api/gastos'
 import type { GastosDia } from './api/gastos'
+import { concluirChaveIdempotencia, obterChaveIdempotencia } from './api/idempotencia'
 
 const reais = (valor: number) => valor.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
 function hoje() {
@@ -38,10 +39,18 @@ export default function Gastos({ empresaId }: { empresaId: string }) {
     if (trava.current || conferirLista || carregando || !resultado) return
     const formulario = evento.currentTarget
     const campos = new FormData(formulario)
+    const entrada = { descricao: String(campos.get('descricao') ?? ''), valor: String(campos.get('valor') ?? ''),
+      data, categoria: String(campos.get('categoria') ?? ''), observacao: String(campos.get('observacao') ?? '') }
+    let preparada: ReturnType<typeof prepararGasto>
+    try { preparada = prepararGasto(entrada) } catch (falha) {
+      setErro(falha instanceof Error ? falha.message : 'Confira os dados do gasto.')
+      return
+    }
     trava.current = true; setSalvando(true); setErro(''); setAviso('')
     try {
-      await criarGasto(empresaId, { descricao: String(campos.get('descricao') ?? ''), valor: String(campos.get('valor') ?? ''),
-        data, categoria: String(campos.get('categoria') ?? ''), observacao: String(campos.get('observacao') ?? '') })
+      const chave = await obterChaveIdempotencia(empresaId, 'GASTO', preparada)
+      await criarGasto(empresaId, entrada, chave)
+      await concluirChaveIdempotencia(empresaId, 'GASTO', preparada, chave)
       if (!montado.current) return
       formulario.reset(); setAviso('Gasto registrado.'); setPagina(0); setAtualizacao(n => n + 1)
     } catch (falha) {
@@ -50,7 +59,7 @@ export default function Gastos({ empresaId }: { empresaId: string }) {
   }
 
   return <>
-    <div className="barra-pagina"><label>Dia dos gastos<input type="date" required value={data} disabled={salvando} onChange={e => {
+    <div className="barra-pagina"><label>Dia dos gastos<input type="date" required value={data} disabled={salvando || conferirLista} onChange={e => {
       if (e.target.value) { setData(e.target.value); setPagina(0); setAviso('') }
     }} /></label><button type="button" className="botao-secundario" disabled={carregando || salvando} onClick={() => setAtualizacao(n => n + 1)}>Atualizar lista</button></div>
     <section className="painel formulario-preview"><div className="painel-titulo"><div><h2>Registrar gasto do dia</h2><p>Dinheiro que já saiu do caixa. Cada gasto é lançado uma vez, sem repetição automática.</p></div></div>

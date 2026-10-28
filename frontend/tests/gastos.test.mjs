@@ -20,10 +20,11 @@ test('gasto invalido nao consulta CSRF nem grava', async () => {
 test('gasto envia sessao CSRF e valor decimal textual sem repetir escrita', async () => {
   const chamadas = []
   globalThis.fetch = async (url, init) => { chamadas.push({ url, init }); return url.endsWith('/csrf') ? json({ headerName: 'X-CSRF-TOKEN', token: 'ficticio' }) : json({ id: 'exemplo' }, 201) }
-  await criarGasto('empresa', entrada())
+  await criarGasto('empresa', entrada(), 'f80b0c87-7dd4-40b3-b0ed-088f8d08abbb')
   assert.equal(chamadas.length, 2)
   assert.equal(chamadas[1].init.credentials, 'same-origin')
   assert.equal(chamadas[1].init.headers['X-CSRF-TOKEN'], 'ficticio')
+  assert.equal(chamadas[1].init.headers['Idempotency-Key'], 'f80b0c87-7dd4-40b3-b0ed-088f8d08abbb')
   assert.equal(JSON.parse(chamadas[1].init.body).valor, '25.50')
 })
 test('consulta separa empresa data e pagina e trata erro sem expor resposta', async () => {

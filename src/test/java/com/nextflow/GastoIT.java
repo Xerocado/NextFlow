@@ -31,6 +31,25 @@ class GastoIT {
     @Autowired UsuarioRepository usuarios;
     @Autowired MockMvc mvc;
 
+    @Test void mesmoGastoComChaveRepetidaNaoCriaOutroLancamento() {
+        var dono = usuario();
+        var empresa = empresas.criar(dono.getId(), "Idempotencia A");
+        var outraEmpresa = empresas.criar(dono.getId(), "Idempotencia B");
+        var data = LocalDate.of(2026, 10, 17);
+        var entrada = new GastoEntrada("Diesel", new BigDecimal("25.10"), data, null, null);
+        var chave = UUID.randomUUID();
+        var primeiro = gastos.criar(dono.getId(), empresa.id(), entrada, chave);
+        var repetido = gastos.criar(dono.getId(), empresa.id(), entrada, chave);
+        assertThat(repetido).isEqualTo(primeiro);
+        assertThat(gastos.listar(dono.getId(), empresa.id(), data, 0, 20).total()).isEqualTo(1);
+        assertThatThrownBy(() -> gastos.criar(dono.getId(), empresa.id(),
+                new GastoEntrada("Diesel", new BigDecimal("26.10"), data, null, null), chave))
+                .isInstanceOf(com.nextflow.compartilhado.idempotencia.ConflitoIdempotenciaException.class);
+        var outraEmpresaRegistro = gastos.criar(dono.getId(), outraEmpresa.id(), entrada, chave);
+        assertThat(outraEmpresaRegistro.id()).isNotEqualTo(primeiro.id());
+        assertThat(gastos.listar(dono.getId(), outraEmpresa.id(), data, 0, 20).total()).isEqualTo(1);
+    }
+
     private Usuario usuario() {
         return usuarios.saveAndFlush(new Usuario("Exemplo", UUID.randomUUID() + "@example.test", "hash-ficticio", Instant.EPOCH));
     }

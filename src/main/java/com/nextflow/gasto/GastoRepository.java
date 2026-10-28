@@ -8,6 +8,7 @@ import org.springframework.data.jpa.repository.*;
 import org.springframework.data.repository.query.Param;
 
 public interface GastoRepository extends JpaRepository<Gasto, UUID> {
+    java.util.Optional<Gasto> findByIdAndEstabelecimentoId(UUID id, UUID empresa);
     Page<Gasto> findByEstabelecimentoIdAndDataOrderByCriadoEmDescIdDesc(UUID estabelecimentoId, LocalDate data, Pageable pagina);
 
     @Query("select coalesce(sum(g.valor), 0) from Gasto g where g.estabelecimentoId = :empresa and g.data = :data")

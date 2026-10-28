@@ -18,7 +18,10 @@ public class Entrega {
     @Column(name="criado_em", nullable=false) private Instant criadoEm;
     protected Entrega() { }
     Entrega(UUID empresa, EntregaEntrada e, String identificacao, Instant agora) {
-        id=UUID.randomUUID(); estabelecimentoId=empresa; clienteId=e.clienteId();
+        this(UUID.randomUUID(), empresa, e, identificacao, agora);
+    }
+    Entrega(UUID id, UUID empresa, EntregaEntrada e, String identificacao, Instant agora) {
+        this.id=id; estabelecimentoId=empresa; clienteId=e.clienteId();
         this.identificacao=identificacao; data=e.data(); litros=e.litros().intValueExact();
         valorTotal=e.valorTotal().setScale(2, RoundingMode.UNNECESSARY);
         valorPago=new BigDecimal("0.00"); semCobranca=e.semCobranca();

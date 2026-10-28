@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import type { FormEvent } from 'react'
 import { consultarEntrega, criarEntrega, hoje, listarEntregas, prepararEntrega, prepararPagamento, registrarPagamento } from './api/entregas'
 import type { DetalheEntrega, EntregasPagina } from './api/entregas'
+import { concluirChaveIdempotencia, obterChaveIdempotencia } from './api/idempotencia'
 import { listarClientes } from './api/clientes'
 import type { ClientesPagina } from './api/clientes'
 
@@ -62,10 +63,13 @@ export default function Entregas({ empresaId, pendentes = false }: { empresaId: 
     if (trava.current || conferir || carregando || !lista) return
     const form = evento.currentTarget, campos = new FormData(form)
     const entrada = { data: String(campos.get('data')), clienteId: cliente || null, identificacaoAvulso: cliente ? '' : String(campos.get('identificacao') ?? ''), litros: String(campos.get('litros')), valorTotal: String(campos.get('valor')), semCobranca: gratis, motivo: String(campos.get('motivo') ?? '') }
-    try { prepararEntrega(entrada) } catch (e) { setErro(mensagem(e)); return }
+    let preparada: ReturnType<typeof prepararEntrega>
+    try { preparada = prepararEntrega(entrada) } catch (e) { setErro(mensagem(e)); return }
     trava.current = true; setSalvando(true); setErro(''); setAviso('')
     try {
-      const entrega = await criarEntrega(empresaId, entrada)
+      const chave = await obterChaveIdempotencia(empresaId, 'ENTREGA', preparada)
+      const entrega = await criarEntrega(empresaId, entrada, chave)
+      await concluirChaveIdempotencia(empresaId, 'ENTREGA', preparada, chave)
       if (!montado.current) return
       form.reset(); setCliente(''); setGratis(false); setId(entrega.id)
       setAviso('Entrega registrada. Para registrar um recebimento, use o detalhe abaixo.'); setVersao(n => n + 1)
@@ -77,10 +81,13 @@ export default function Entregas({ empresaId, pendentes = false }: { empresaId: 
     if (trava.current || conferir || !detalhe || !lista || carregando) return
     const form = evento.currentTarget, campos = new FormData(form)
     const data = String(campos.get('data')), valor = String(campos.get('valor')), saldo = detalhe.entrega.saldoPendente.toFixed(2)
-    try { prepararPagamento(data, valor, saldo) } catch (e) { setErro(mensagem(e)); return }
+    let preparado: ReturnType<typeof prepararPagamento>
+    try { preparado = prepararPagamento(data, valor, saldo) } catch (e) { setErro(mensagem(e)); return }
     trava.current = true; setSalvando(true); setErro(''); setAviso('')
     try {
-      await registrarPagamento(empresaId, detalhe.entrega.id, data, valor, saldo)
+      const chave = await obterChaveIdempotencia(empresaId, 'PAGAMENTO', preparado, detalhe.entrega.id)
+      await registrarPagamento(empresaId, detalhe.entrega.id, data, valor, saldo, chave)
+      await concluirChaveIdempotencia(empresaId, 'PAGAMENTO', preparado, chave, detalhe.entrega.id)
       if (!montado.current) return
       form.reset(); setAviso('Recebimento registrado.'); setPagina(0); setVersao(n => n + 1)
     } catch (e) { if (montado.current) { setErro(mensagem(e)); setConferir(true) } }
@@ -107,7 +114,7 @@ export default function Entregas({ empresaId, pendentes = false }: { empresaId: 
     {aviso ? <div className="aviso" role="status">{aviso}</div> : null}
     {carregando ? <p role="status">Carregando entregas…</p> : lista ? <section className="painel"><div className="painel-titulo"><div><h2>{pendentes ? 'Entregas com saldo pendente' : 'Histórico de entregas'}</h2><p>{lista.total} registros no período</p></div></div>
       <div className="tabela-scroll" tabIndex={0} role="region" aria-label="Entregas registradas"><table><caption className="sr-only">Entregas da empresa no período selecionado</caption><thead><tr>{['Data', 'Cliente', 'Litros', 'Total', 'Recebido', 'Pendente', 'Situação', 'Ações'].map(t => <th key={t} scope="col">{t}</th>)}</tr></thead><tbody>
-        {lista.itens.map(e => <tr key={e.id}><td>{dataTexto(e.data)}</td><td className="texto-historico">{e.identificacao || 'não identificado'}</td><td>{e.litros}</td><td>{reais(e.valorTotal)}</td><td>{reais(e.valorPago)}</td><td>{reais(e.saldoPendente)}</td><td><span className={`badge badge-${e.saldoPendente > 0 ? 'alerta' : 'sucesso'}`}>{e.semCobranca ? 'Sem cobrança' : e.saldoPendente === 0 ? 'Pago' : e.valorPago > 0 ? 'Parcial' : 'Pendente'}</span></td><td><button className="botao-secundario" disabled={salvando} onClick={() => { setId(e.id); setErro(''); setAviso('') }}>Ver detalhes</button></td></tr>)}
+        {lista.itens.map(e => <tr key={e.id}><td>{dataTexto(e.data)}</td><td className="texto-historico">{e.identificacao || 'não identificado'}</td><td>{e.litros}</td><td>{reais(e.valorTotal)}</td><td>{reais(e.valorPago)}</td><td>{reais(e.saldoPendente)}</td><td><span className={`badge badge-${e.saldoPendente > 0 ? 'alerta' : 'sucesso'}`}>{e.semCobranca ? 'Sem cobrança' : e.saldoPendente === 0 ? 'Pago' : e.valorPago > 0 ? 'Parcial' : 'Pendente'}</span></td><td><button className="botao-secundario" disabled={salvando || conferir} onClick={() => { setId(e.id); setErro(''); setAviso('') }}>Ver detalhes</button></td></tr>)}
         {!lista.itens.length ? <tr><td colSpan={8}>Nenhuma entrega {pendentes ? 'pendente ' : ''}neste período.</td></tr> : null}</tbody></table></div>
       <div className="painel-titulo"><button className="botao-secundario" disabled={pagina === 0 || salvando} onClick={() => setPagina(n => n - 1)}>Anterior</button><span>Página {pagina + 1}</span><button className="botao-secundario" disabled={(pagina + 1) * lista.tamanho >= lista.total || salvando} onClick={() => setPagina(n => n + 1)}>Próxima</button></div></section> : null}
     {id ? <section className="painel formulario-preview" aria-label="Detalhes da entrega"><div className="painel-titulo"><div><h2>Detalhes da entrega</h2><p>{detalhe ? `${detalhe.entrega.identificacao || 'não identificado'} · ${dataTexto(detalhe.entrega.data)} · ${detalhe.entrega.litros} litros` : 'Consultando entrega…'}</p></div><button className="botao-secundario" disabled={salvando} onClick={() => setId(null)}>Fechar detalhes</button></div>
@@ -115,7 +122,7 @@ export default function Entregas({ empresaId, pendentes = false }: { empresaId: 
         <p>Total: {reais(detalhe.entrega.valorTotal)} · Recebido: {reais(detalhe.entrega.valorPago)} · Pendente: {reais(detalhe.entrega.saldoPendente)}</p>
         {detalhe.entrega.semCobranca ? <p>Entrega sem cobrança.</p> : null}{detalhe.entrega.motivo ? <p className="texto-historico">Motivo: {detalhe.entrega.motivo}</p> : null}
         <h3>Recebimentos registrados</h3>{detalhe.pagamentos.length ? <ul>{detalhe.pagamentos.map(p => <li key={p.id}>{dataTexto(p.data)} · {reais(p.valor)}</li>)}</ul> : <p>Nenhum recebimento registrado.</p>}
-        {detalhe.entrega.saldoPendente > 0 ? <form key={`${id}-${versao}`} onSubmit={receber}><fieldset className="empresa-grupo" disabled={salvando || conferir || carregando || !lista}><h3>Registrar recebimento</h3><div className="grade-formulario"><div><label htmlFor="pagamento-data">Data efetiva</label><input id="pagamento-data" name="data" type="date" defaultValue={hoje()} max={hoje()} required /></div><div><label htmlFor="pagamento-valor">Valor recebido (R$)</label><input id="pagamento-valor" name="valor" inputMode="decimal" pattern="[0-9]{1,12}([.,][0-9]{1,2})?" required /></div></div><div className="formulario-acoes"><p>Aceita pagamento parcial, até o saldo pendente.</p><button className="botao-principal">{salvando ? 'Registrando…' : 'Registrar recebimento'}</button></div></fieldset></form> : null}
+        {detalhe.entrega.saldoPendente > 0 ? <form key={id} onSubmit={receber}><fieldset className="empresa-grupo" disabled={salvando || conferir || carregando || !lista}><h3>Registrar recebimento</h3><div className="grade-formulario"><div><label htmlFor="pagamento-data">Data efetiva</label><input id="pagamento-data" name="data" type="date" defaultValue={hoje()} max={hoje()} required /></div><div><label htmlFor="pagamento-valor">Valor recebido (R$)</label><input id="pagamento-valor" name="valor" inputMode="decimal" pattern="[0-9]{1,12}([.,][0-9]{1,2})?" required /></div></div><div className="formulario-acoes"><p>Aceita pagamento parcial, até o saldo pendente.</p><button className="botao-principal">{salvando ? 'Registrando…' : 'Registrar recebimento'}</button></div></fieldset></form> : null}
       </> : <p role="status">Carregando detalhes…</p>}</section> : null}
   </>
 }

@@ -4,6 +4,7 @@ import java.math.BigDecimal;
 import java.time.*;
 import java.util.*;
 import com.nextflow.estabelecimento.*;
+import com.nextflow.compartilhado.idempotencia.OperacaoIdempotente;
 import jakarta.validation.Validation;
 import org.junit.jupiter.api.*;
 import org.springframework.data.domain.*;
@@ -17,7 +18,7 @@ class GastoServiceTest {
     private final Estabelecimento empresa = new Estabelecimento("Empresa teste", Instant.EPOCH);
     private final LocalDate data = LocalDate.of(2026, 10, 17);
     private final jakarta.validation.ValidatorFactory factory = Validation.buildDefaultValidatorFactory();
-    private final GastoService service = new GastoService(gastos, empresas, factory.getValidator(), Clock.fixed(Instant.EPOCH, ZoneOffset.UTC));
+    private final GastoService service = new GastoService(gastos, empresas, factory.getValidator(), Clock.fixed(Instant.EPOCH, ZoneOffset.UTC), mock(OperacaoIdempotente.class));
 
     @AfterEach void fechar() { factory.close(); }
     private GastoEntrada entrada(String valor) { return new GastoEntrada(" Transporte ", new BigDecimal(valor), data, "  ", " exemplo "); }

@@ -45,6 +45,6 @@ class GastoWebTest {
     @Test void identidadeVemDaSessaoMesmoComCampoForjado() throws Exception {
         mvc.perform(post(caminho()).with(user(new UsuarioAutenticado(usuario))).with(csrf()).contentType("application/json")
                 .content(corpo.replace("}", ",\"usuarioId\":\"" + UUID.randomUUID() + "\"}"))).andExpect(status().isCreated());
-        verify(service).criar(eq(usuario.getId()), eq(empresa), any(GastoEntrada.class));
+        verify(service).criar(eq(usuario.getId()), eq(empresa), any(GastoEntrada.class), isNull());
     }
 }

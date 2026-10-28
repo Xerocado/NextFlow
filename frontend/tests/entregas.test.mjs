@@ -24,7 +24,7 @@ test('cliente HTTP integra criação, listagem, detalhe e recebimento com CSRF p
   const server = createServer(async (req, res) => {
     let body = ''
     for await (const parte of req) body += parte
-    chamadas.push({ url: req.url, method: req.method, csrf: req.headers['x-csrf-token'], body: body ? JSON.parse(body) : null })
+    chamadas.push({ url: req.url, method: req.method, csrf: req.headers['x-csrf-token'], chave: req.headers['idempotency-key'], body: body ? JSON.parse(body) : null })
     res.setHeader('Content-Type', 'application/json')
     res.end(JSON.stringify(req.url === '/api/auth/csrf' ? { headerName: 'X-CSRF-TOKEN', token: 'teste' } : req.method === 'POST' ? { id: 'registro' } : req.url.includes('?') ? { itens: [], total: 0 } : { entrega: { id: 'registro' }, pagamentos: [] }))
   })
@@ -35,17 +35,19 @@ test('cliente HTTP integra criação, listagem, detalhe e recebimento com CSRF p
     return original(`http://127.0.0.1:${server.address().port}${url}`, init)
   }
   try {
-    await criarEntrega('a/b', entrada())
+    await criarEntrega('a/b', entrada(), 'f80b0c87-7dd4-40b3-b0ed-088f8d08a6bb')
     await listarEntregas('a/b', '2026-01-01', '2026-01-31', true, 2)
     await consultarEntrega('a/b', 'c/d')
-    await registrarPagamento('a/b', 'c/d', '2026-01-01', '2,50', '12.50')
+    await registrarPagamento('a/b', 'c/d', '2026-01-01', '2,50', '12.50', 'f80b0c87-7dd4-40b3-b0ed-088f8d08a6bc')
     assert.equal(chamadas[1].url, '/api/estabelecimentos/a%2Fb/entregas')
     assert.equal(chamadas[1].csrf, 'teste')
+    assert.equal(chamadas[1].chave, 'f80b0c87-7dd4-40b3-b0ed-088f8d08a6bb')
     assert.deepEqual(chamadas[1].body, prepararEntrega(entrada()))
     assert.equal(chamadas[2].url, '/api/estabelecimentos/a%2Fb/entregas?inicio=2026-01-01&fim=2026-01-31&pendentes=true&pagina=2&tamanho=20')
     assert.equal(chamadas[3].url, '/api/estabelecimentos/a%2Fb/entregas/c%2Fd')
     assert.equal(chamadas[5].url, '/api/estabelecimentos/a%2Fb/entregas/c%2Fd/pagamentos')
     assert.equal(chamadas[5].csrf, 'teste')
+    assert.equal(chamadas[5].chave, 'f80b0c87-7dd4-40b3-b0ed-088f8d08a6bc')
     assert.deepEqual(chamadas[5].body, { data: '2026-01-01', valor: '2.50' })
   } finally { globalThis.fetch = original; await new Promise(resolve => server.close(resolve)) }
 })

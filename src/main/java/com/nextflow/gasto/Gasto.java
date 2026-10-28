@@ -22,7 +22,11 @@ public class Gasto {
     protected Gasto() { }
 
     public Gasto(UUID estabelecimentoId, GastoEntrada entrada, Instant criadoEm) {
-        this.id = UUID.randomUUID();
+        this(UUID.randomUUID(), estabelecimentoId, entrada, criadoEm);
+    }
+
+    public Gasto(UUID id, UUID estabelecimentoId, GastoEntrada entrada, Instant criadoEm) {
+        this.id = id;
         this.estabelecimentoId = estabelecimentoId;
         this.descricao = entrada.descricao().strip();
         this.valor = entrada.valor().setScale(2, RoundingMode.UNNECESSARY);

@@ -4,6 +4,7 @@ import java.time.*;
 import java.util.*;
 import com.nextflow.cliente.*;
 import com.nextflow.estabelecimento.*;
+import com.nextflow.compartilhado.idempotencia.OperacaoIdempotente;
 import jakarta.validation.Validation;
 import org.junit.jupiter.api.*;
 import static org.assertj.core.api.Assertions.*;
@@ -17,7 +18,7 @@ class EntregaServiceTest {
     final Estabelecimento empresa=new Estabelecimento("Teste",Instant.EPOCH);
     final jakarta.validation.ValidatorFactory factory=Validation.buildDefaultValidatorFactory();
     final Clock clock=Clock.fixed(Instant.parse("2026-10-23T15:00:00Z"),ZoneOffset.UTC);
-    final EntregaService service=new EntregaService(entregas,pagamentos,clientes,empresas,factory.getValidator(),clock);
+    final EntregaService service=new EntregaService(entregas,pagamentos,clientes,empresas,factory.getValidator(),clock,mock(OperacaoIdempotente.class));
     final LocalDate dia=LocalDate.of(2026,10,10);
     @AfterEach void fechar() { factory.close(); }
     void autorizar() {

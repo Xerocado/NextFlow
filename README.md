@@ -83,7 +83,7 @@ Uma conta pode administrar várias empresas. Cadastro e login por e-mail, logout
 - Existe somente o papel de proprietário. Funcionários, caminhões e equipes diárias ainda não estão implementados.
 - Exclusão/arquivamento de empresas, edição/exclusão de entregas e gastos e estorno de pagamentos não estão disponíveis.
 - Pendências começam no mês atual; amplie o período para consultar dívidas anteriores.
-- Entrega e pagamento são operações separadas. Em falha de comunicação, confira os registros antes de repetir: ainda não há idempotência para reconhecer reenvios.
+- Entrega, pagamento e gasto aceitam `Idempotency-Key`; a interface reutiliza a chave se a resposta se perder. Clientes antigos sem o header ainda podem duplicar operações repetidas.
 - O ícone da empresa fica na memória da página. CNPJ não faz parte do cadastro atual.
 - WhatsApp, Telegram e cobrança de assinaturas do SaaS não estão implementados.
 
@@ -100,7 +100,7 @@ Uma conta pode administrar várias empresas. Cadastro e login por e-mail, logout
 | **Testes** | JUnit Jupiter · Mockito · AssertJ · MockMvc · Testcontainers · Node.js Test Runner |
 | **Ferramentas** | Maven Wrapper · npm · PowerShell · Docker para PostgreSQL e integração |
 
-Versões do frontend conferidas no [lockfile](frontend/package-lock.json); use `npm ci` para reproduzir a resolução. O [pom.xml](pom.xml) gerencia as dependências Java pelo Spring Boot. O Wrapper 3.3.4 está configurado para Maven 3.10.0; as migrações existentes vão de V1 a V7.
+Versões do frontend conferidas no [lockfile](frontend/package-lock.json); use `npm ci` para reproduzir a resolução. O [pom.xml](pom.xml) gerencia as dependências Java pelo Spring Boot. O Wrapper 3.3.4 está configurado para Maven 3.10.0; as migrações existentes vão de V1 a V8.
 
 ## Arquitetura do sistema
 
@@ -112,7 +112,7 @@ flowchart LR
     API --> NEG["Serviços de negócio"]
     NEG --> JPA["Repositories · JPA"]
     JPA --> DB[("PostgreSQL")]
-    FLY["Flyway · V1–V7"] --> DB
+    FLY["Flyway · V1–V8"] --> DB
     NEG -->|"Recuperação de senha"| MAIL["SMTP"]
     UI -->|"Consulta de endereço"| CEP["ViaCEP"]
 ```
@@ -123,7 +123,7 @@ flowchart LR
 - **Esquema:** Flyway versiona as mudanças; Hibernate valida as tabelas.
 - **Interface:** cookie de sessão HttpOnly e proteção CSRF; o proxy Vite encaminha `/api` ao backend no desenvolvimento.
 
-A revalidação de 28/10/2026 passou com 71 testes rápidos e 31 integrados em PostgreSQL descartável, build frontend e 18 cenários de navegação em Edge, incluindo larguras desktop/mobile. A paginação do Movimento foi validada separadamente e consulta somente a lista alterada. Esses resultados não declaram prontidão para produção. Comandos, reprodução e limites estão no [guia de navegação isolada](docs/validacao-interface.md) e no [estado atual](docs/estado-atual.md).
+A revalidação de 28/10/2026 passou com 71 testes rápidos e 35 integrados em PostgreSQL descartável, build frontend e 19 cenários de navegação em Edge, incluindo reenvio após resposta perdida e larguras desktop/mobile. A paginação do Movimento foi validada separadamente e consulta somente a lista alterada. Esses resultados não declaram prontidão para produção. Comandos, reprodução e limites estão no [guia de navegação isolada](docs/validacao-interface.md) e no [estado atual](docs/estado-atual.md).
 
 <details>
 <summary><strong>Organização do projeto</strong></summary>
@@ -369,7 +369,7 @@ O roteiro opcional `node scripts/validar-interface.mjs` valida a interface com A
 
 - [x] Validar a base integrada em PostgreSQL descartável e executar o build frontend.
 - [x] Validar o fluxo autenticado no Edge com larguras desktop/mobile e respostas atrasadas ao trocar empresa, no escopo documentado.
-- [ ] Idempotência para evitar duplicidade em reenvios.
+- [x] Idempotência para reenvios de entrega, pagamento e gasto; ver contrato e limites em [docs/entregas.md](docs/entregas.md).
 - [ ] Melhorar a consulta inicial de dívidas antigas.
 - [ ] Definir arquivamento/exclusão de empresas e correções/estornos com preservação do histórico.
 - [ ] Preparar implantação e recuperação operacional de e-mails para uso público.

@@ -3,7 +3,9 @@ package com.nextflow.gasto;
 import java.math.BigDecimal;
 import java.time.*;
 import java.util.*;
+import java.util.function.Function;
 import com.nextflow.estabelecimento.*;
+import com.nextflow.compartilhado.idempotencia.OperacaoIdempotente;
 import jakarta.validation.Validator;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
@@ -15,17 +17,28 @@ public class GastoService {
     private final EstabelecimentoRepository empresas;
     private final Validator validator;
     private final Clock clock;
+    private final OperacaoIdempotente operacoes;
 
-    public GastoService(GastoRepository gastos, EstabelecimentoRepository empresas, Validator validator, Clock clock) {
-        this.gastos = gastos; this.empresas = empresas; this.validator = validator; this.clock = clock;
+    public GastoService(GastoRepository gastos, EstabelecimentoRepository empresas, Validator validator, Clock clock,
+            OperacaoIdempotente operacoes) {
+        this.gastos = gastos; this.empresas = empresas; this.validator = validator; this.clock = clock; this.operacoes = operacoes;
     }
 
     @Transactional
     public GastoResposta criar(UUID usuario, UUID empresa, GastoEntrada entrada) {
+        return criar(usuario, empresa, entrada, null);
+    }
+
+    @Transactional
+    public GastoResposta criar(UUID usuario, UUID empresa, GastoEntrada entrada, UUID chave) {
         empresas.buscarDoProprietario(usuario, empresa, VinculoEstabelecimento.Papel.PROPRIETARIO)
                 .orElseThrow(EstabelecimentoNaoEncontradoException::new);
         if (!validator.validate(entrada).isEmpty()) throw new IllegalArgumentException("Verifique os campos do gasto.");
-        return gastos.save(new Gasto(empresa, entrada, clock.instant())).resposta();
+        Function<UUID, GastoResposta> criar = resultadoId ->
+                gastos.save(new Gasto(resultadoId, empresa, entrada, clock.instant())).resposta();
+        if (chave == null) return criar.apply(UUID.randomUUID());
+        return operacoes.executar(empresa, "GASTO", chave, null, entrada, criar,
+                resultadoId -> gastos.findByIdAndEstabelecimentoId(resultadoId, empresa).map(Gasto::resposta).orElse(null));
     }
 
     @Transactional(readOnly = true)

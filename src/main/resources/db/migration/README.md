@@ -6,5 +6,7 @@
 `V4__dados_empresa.sql` adiciona os dados complementares da empresa.
 `V5__gastos_variaveis.sql` cria gastos pagos do dia, sem recorrencia.
 `V6__clientes.sql` cria clientes por estabelecimento.
-Os proximos scripts devem comecar em `V7__descricao.sql`, apos definicao das regras.
+`V7__entregas_e_pagamentos.sql` cria entregas, pagamentos e suas restricoes de isolamento.
+`V8__operacoes_idempotentes.sql` registra chaves e fingerprints de reenvios.
+Os proximos scripts devem comecar em `V9__descricao.sql`, apos definicao das regras.
 Este README não é executado pelo Flyway. Não altere scripts já aplicados.

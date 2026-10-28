@@ -41,7 +41,7 @@ class EntregaWebTest {
         mvc.perform(post(caminho()+"/"+id+"/pagamentos").with(user(new UsuarioAutenticado(usuario))).with(csrf())
             .contentType("application/json").content("{\"data\":\"2026-10-10\",\"valor\":100,\"usuarioId\":\""+UUID.randomUUID()+"\"}"))
             .andExpect(status().isCreated());
-        verify(service).receber(eq(usuario.getId()),eq(empresa),eq(id),any());
+        verify(service).receber(eq(usuario.getId()),eq(empresa),eq(id),any(),isNull());
     }
     @Test void entregaAusenteRetorna404() throws Exception {
         when(service.consultar(usuario.getId(),empresa,id)).thenThrow(new EntregaNaoEncontradaException());

@@ -13,7 +13,10 @@ public class Pagamento {
     @Column(name="criado_em", nullable=false) private Instant criadoEm;
     protected Pagamento() { }
     Pagamento(UUID empresa, UUID entrega, PagamentoEntrada e, Instant agora) {
-        id=UUID.randomUUID(); estabelecimentoId=empresa; entregaId=entrega;
+        this(UUID.randomUUID(), empresa, entrega, e, agora);
+    }
+    Pagamento(UUID id, UUID empresa, UUID entrega, PagamentoEntrada e, Instant agora) {
+        this.id=id; estabelecimentoId=empresa; entregaId=entrega;
         data=e.data(); valor=e.valor().setScale(2); criadoEm=agora;
     }
     public Resposta resposta() { return new Resposta(id, entregaId, data, valor); }

@@ -2,9 +2,9 @@
 
 ## Navegação isolada — revalidação de 28/10/2026
 
-Os 68 testes frontend, o build de produção e 18 cenários Edge foram executados
+Os 71 testes frontend, o build de produção e 19 cenários Edge foram executados
 novamente. A integração `.\mvnw.cmd -o verify` passou com 71 testes rápidos e
-31 integrados em PostgreSQL descartável, com as migrações V1–V7. O Edge usado
+35 integrados em PostgreSQL descartável, com as migrações V1–V8. O Edge usado
 foi 156.0.4314.50; detalhes, comandos e limites estão em
 [docs/validacao-interface.md](../docs/validacao-interface.md).
 
@@ -59,6 +59,11 @@ As três listas têm paginação independente. Trocar empresa/data cancela consu
 anteriores e limpa resultados. Links levam ao cadastro existente de entregas e gastos.
 O backend deve disponibilizar GET /api/estabelecimentos/{empresaId}/movimento.
 
+Criações de entrega, pagamento e gasto enviam `Idempotency-Key`. A chave e o hash
+do conteúdo ficam em `sessionStorage` para repetir a mesma operação após recarga;
+o payload não é armazenado. Veja o contrato e as limitações em
+[docs/entregas.md](../docs/entregas.md).
+
 ## Entregas e recebimentos
 
 Selecione a empresa em Minha empresa e abra Historico de pedidos para registrar
@@ -69,8 +74,9 @@ permite valor zero e nao gera saldo pendente. Motivo e opcional.
 Use Ver detalhes para consultar pagamentos e registrar recebimento integral ou
 parcial, na data efetiva (inclusive retroativa, nunca futura), ate o saldo atual.
 O registro da entrega e o pagamento sao duas operacoes independentes. Se o envio
-falhar, Atualizar registros recarrega lista e detalhe: confira antes de repetir.
-Nao ha repeticao automatica de escritas, edicao, exclusao ou estorno.
+falhar, Atualizar registros recarrega lista e detalhe; reenviar pelo formulário
+com o mesmo conteúdo reutiliza a chave para evitar duplicação. A API ainda aceita
+chamadas antigas sem chave. Não há repetição automática, edição, exclusão ou estorno.
 
 Historico e Pagamentos pendentes filtram pela data da entrega, inicialmente do
 primeiro dia do mes ate hoje. Amplie o periodo para localizar dividas antigas.

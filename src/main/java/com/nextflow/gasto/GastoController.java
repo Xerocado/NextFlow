@@ -18,8 +18,9 @@ public class GastoController {
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
     public GastoResposta criar(@AuthenticationPrincipal UsuarioAutenticado usuario, @PathVariable UUID empresaId,
-            @Valid @RequestBody GastoEntrada entrada) {
-        return service.criar(usuario.getId(), empresaId, entrada);
+            @Valid @RequestBody GastoEntrada entrada,
+            @RequestHeader(value = "Idempotency-Key", required = false) UUID chave) {
+        return service.criar(usuario.getId(), empresaId, entrada, chave);
     }
 
     @GetMapping

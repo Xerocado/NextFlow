@@ -9,6 +9,12 @@ Repetido em 28/10/2026: **18 cenários aprovados**, Edge 156.0.4314.50,
 PostgreSQL 16.15 descartável e Mailpit local. Artefatos em
 `.cache/navegacao-1793187917122/`.
 
+Repetido em 28/10/2026 após idempotência: **19 cenários aprovados** no Edge
+156.0.4314.50, com o mesmo isolamento PostgreSQL/Mailpit. O novo cenário grava
+uma entrega, simula perda da resposta, recarrega a tela e confirma que a repetição
+usa a mesma chave e retorna o mesmo registro. Artefatos em
+`.cache/navegacao-1793189748372/`.
+
 ## Como reproduzir
 
 Requer JDK 21, Node 24+, Docker acessível, dependências do projeto e as imagens
@@ -52,7 +58,7 @@ O roteiro inicia seu próprio ambiente e não aceita URL de banco fornecida pelo
 usuário. PostgreSQL usa `tmpfs` em `/var/lib/postgresql/data`, banco
 `nextflow_validacao`, credencial aleatória em memória e porta dinâmica publicada
 somente em 127.0.0.1. Antes de iniciar Java, verifica a configuração de `tmpfs`
-e a ausência de montagens de volume. Flyway aplica V1–V7 apenas nesse banco.
+e a ausência de montagens de volume. Flyway aplica V1–V8 apenas nesse banco.
 
 Mailpit é criado sem relay/forwarding, com portas locais dinâmicas. A API recebe
 esse SMTP e não herda variáveis DB_*, SMTP_* ou SPRING_* do terminal. O `.env`
@@ -75,6 +81,8 @@ os IDs próprios registrados em `ambiente.json`.
 - Entrega cadastrada de R$ 150,30; pagamento de R$ 50,10 ontem e R$ 100,20 hoje;
   rejeição de excesso/data futura na interface e no servidor; quitação.
 - Entrega sem cobrança e avulso não identificado com saldo pendente.
+- Resposta perdida depois da gravação; reload e reenvio com a mesma chave,
+  confirmando um único lançamento.
 - Gastos pela interface e massa adicional pela API: 22 registros, total de
   R$ 25,50 preservado na segunda página. Movimento mostra R$ 100,20 recebidos e
   saldo de R$ 74,70 hoje; R$ 50,10 recebidos ontem, sem deslocar a entrega antiga.
@@ -129,9 +137,11 @@ viewport desktop 1440×1000 e larguras responsivas 390/360; não comprova opera�
 em aparelho físico, Safari/Firefox, leitor de tela ou todas as combinações de
 resolução. A invalidação de sessão foi provocada por logout; não se aguardou o
 timeout de 30 minutos. O fluxo completo de redefinição de senha não foi repetido
-no navegador. O roteiro não valida implantação de produção nem indisponibilidade
-ou resposta perdida em escritas.
+no navegador. O roteiro não valida implantação de produção. A resposta perdida
+foi simulada para criação de entrega; pagamentos e gastos não tiveram esse ensaio
+de navegador, embora sejam cobertos pela integração backend.
 
-Próximo incremento recomendado: contrato de idempotência para entregas,
-pagamentos e gastos. Dívidas antigas, paginação independente no movimento,
-recuperação durável e preparação operacional continuam pendentes.
+Na execução inicial, recomendava-se definir contrato de idempotência. Essa etapa
+foi concluída depois; veja o resultado mais recente no topo deste documento.
+Melhorias seguintes ainda pendentes incluem ampliar a consulta inicial de dívidas
+antigas e a preparação operacional para recuperação de e-mail/produção.

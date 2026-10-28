@@ -35,7 +35,10 @@ export async function validarFluxos({ browser, expect: original, baseURL, pasta,
   }
   async function trocar(empresa) {
     await navegar('Minha empresa')
-    await pagina.getByLabel('Empresa', { exact: true }).selectOption(empresa.id)
+    const seletor = pagina.getByLabel('Empresa', { exact: true })
+    await expect(seletor).toBeEnabled()
+    await expect(seletor.locator(`option[value="${empresa.id}"]`)).toHaveCount(1)
+    await seletor.selectOption(empresa.id)
   }
   async function enviar(caminho, dados, metodo = 'POST', ctx = contexto) {
     const csrf = await (await ctx.request.get(`${baseURL}/api/auth/csrf`)).json()
@@ -144,6 +147,50 @@ export async function validarFluxos({ browser, expect: original, baseURL, pasta,
       await expect(pagina.getByRole('row').filter({ hasText: 'não identificado' })).toContainText('10,00')
       await expect(pagina.getByRole('cell', { name: 'Doação fictícia', exact: true })).toHaveCount(0)
     }, true)
+    await etapa('Resposta perdida usa a mesma chave e não duplica a entrega após recarregar a tela', async () => {
+      await trocar(a)
+      await navegar('Histórico de pedidos')
+      await pagina.getByLabel('De', { exact: true }).fill(hoje)
+      await pagina.getByLabel('Até', { exact: true }).fill(hoje)
+      await pagina.getByLabel('Data da entrega', { exact: true }).fill(hoje)
+      await pagina.getByLabel('Cliente', { exact: true }).selectOption('')
+      await pagina.getByLabel('Identificação (opcional)', { exact: true }).fill('Resposta perdida fictícia')
+      await pagina.getByLabel('Litros', { exact: true }).fill('321')
+      await pagina.getByLabel('Valor total (R$)', { exact: true }).fill('31,25')
+      const chaves = []
+      await pagina.route('**/api/estabelecimentos/*/entregas', async rota => {
+        if (rota.request().method() !== 'POST') return rota.continue()
+        chaves.push((await rota.request().allHeaders())['idempotency-key'])
+        const resposta = await rota.fetch()
+        assert.equal(resposta.status(), 201)
+        await rota.abort('connectionfailed')
+      })
+      await pagina.getByRole('button', { name: 'Registrar entrega', exact: true }).click()
+      await expect(pagina.getByRole('alert')).toContainText('Atualize e confira')
+      await pagina.unroute('**/api/estabelecimentos/*/entregas')
+      await pagina.reload()
+      await expect(pagina.getByRole('button', { name: 'Sair da conta', exact: true })).toBeVisible()
+      await trocar(a)
+      await navegar('Histórico de pedidos')
+      await pagina.getByLabel('De', { exact: true }).fill(hoje)
+      await pagina.getByLabel('Até', { exact: true }).fill(hoje)
+      await pagina.getByLabel('Data da entrega', { exact: true }).fill(hoje)
+      await pagina.getByLabel('Cliente', { exact: true }).selectOption('')
+      await pagina.getByLabel('Identificação (opcional)', { exact: true }).fill('Resposta perdida fictícia')
+      await pagina.getByLabel('Litros', { exact: true }).fill('321')
+      await pagina.getByLabel('Valor total (R$)', { exact: true }).fill('31,25')
+      const resposta = pagina.waitForResponse(r => r.request().method() === 'POST' && new URL(r.url()).pathname.endsWith('/entregas'))
+      await pagina.getByRole('button', { name: 'Registrar entrega', exact: true }).click()
+      const repeticao = await resposta
+      assert.equal(repeticao.status(), 201)
+      chaves.push((await repeticao.request().allHeaders())['idempotency-key'])
+      assert.ok(chaves[0])
+      assert.equal(chaves[1], chaves[0])
+      const registro = await repeticao.json()
+      const lista = await (await contexto.request.get(`${baseURL}/api/estabelecimentos/${a.id}/entregas?inicio=${hoje}&fim=${hoje}&pagina=0&tamanho=100`)).json()
+      assert.equal(lista.itens.filter(item => item.id === registro.id).length, 1)
+      await expect(pagina.getByRole('cell', { name: 'Resposta perdida fictícia', exact: true })).toHaveCount(1)
+    }, true)
     await etapa('Gastos, paginação e totais completos no movimento por data efetiva', async () => {
       await navegar('Gastos do dia')
       for (const [nome, valor] of [['Diesel fictício', '25,10'], ['Água fictícia', '0,20']]) {
@@ -164,7 +211,7 @@ export async function validarFluxos({ browser, expect: original, baseURL, pasta,
       await expect(pagina.locator('.metrica').filter({ hasText: 'Saldo do dia' })).toContainText('74,70')
       const entregasDia = pagina.getByRole('region', { name: 'Entregas do dia', exact: true })
       const gastosDia = pagina.locator('.painel').filter({ has: pagina.getByRole('heading', { name: 'Gastos do dia', exact: true }) })
-      await expect(entregasDia.locator('tbody tr')).toHaveCount(2)
+      await expect(entregasDia.locator('tbody tr')).toHaveCount(3)
       await expect(gastosDia.locator('tbody tr')).toHaveCount(20)
       const consultas = []
       const observarConsulta = pedido => {

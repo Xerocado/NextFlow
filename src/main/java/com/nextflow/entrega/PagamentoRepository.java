@@ -6,6 +6,7 @@ import org.springframework.data.domain.*;
 import org.springframework.data.jpa.repository.*;
 import org.springframework.data.repository.query.Param;
 public interface PagamentoRepository extends JpaRepository<Pagamento, UUID> {
+    Optional<Pagamento> findByIdAndEstabelecimentoId(UUID id, UUID empresa);
     interface RecebimentoDia {
         UUID getId();
         UUID getEntregaId();

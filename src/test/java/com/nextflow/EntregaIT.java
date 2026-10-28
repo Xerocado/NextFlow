@@ -17,6 +17,7 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
 import jakarta.persistence.EntityManager;
@@ -42,6 +43,7 @@ class EntregaIT {
     @Autowired MockMvc mvc;
     @Autowired PlatformTransactionManager transacoes;
     @Autowired EntityManager entityManager;
+    @Autowired JdbcTemplate jdbc;
 
     Usuario usuario() {
         return usuarios.saveAndFlush(new Usuario("Teste", UUID.randomUUID()+"@example.test", "hash-ficticio", Instant.EPOCH));
@@ -98,6 +100,85 @@ class EntregaIT {
         var detalhe = entregas.consultar(dono.getId(), empresa.id(), entrega.id());
         assertThat(detalhe.pagamentos()).hasSize(1);
         assertThat(detalhe.entrega().saldoPendente()).isEqualByComparingTo("50");
+    }
+
+    @Test void chaveRepetidaReproduzEntregaEPagamentoEConflitaComOutroConteudo() throws Exception {
+        var dono = usuario();
+        var empresa = empresas.criar(dono.getId(), "Idempotencia");
+        var dia = LocalDate.now(ZoneId.of("America/Sao_Paulo"));
+        var chaveEntrega = UUID.randomUUID();
+        var corpo = "{\"data\":\"" + dia + "\",\"litros\":1000,\"valorTotal\":150,\"semCobranca\":false}";
+        var caminho = "/api/estabelecimentos/" + empresa.id() + "/entregas";
+        var primeira = mvc.perform(post(caminho).with(user(new UsuarioAutenticado(dono))).with(csrf())
+                .header("Idempotency-Key", chaveEntrega).contentType("application/json").content(corpo))
+                .andExpect(status().isCreated()).andReturn().getResponse().getContentAsString();
+        mvc.perform(post(caminho).with(user(new UsuarioAutenticado(dono))).with(csrf())
+                .header("Idempotency-Key", chaveEntrega).contentType("application/json").content(corpo))
+                .andExpect(status().isCreated()).andExpect(content().json(primeira));
+        mvc.perform(post(caminho).with(user(new UsuarioAutenticado(dono))).with(csrf())
+                .header("Idempotency-Key", chaveEntrega).contentType("application/json")
+                .content(corpo.replace("150", "151"))).andExpect(status().isConflict());
+        assertThat(entregas.listar(dono.getId(), empresa.id(), dia, dia, false, 0, 20).total()).isEqualTo(1);
+
+        var entrega = entregas.criar(dono.getId(), empresa.id(), entrada(dia, false));
+        var chavePagamento = UUID.randomUUID();
+        var pagamento = new PagamentoEntrada(dia, new BigDecimal("25.10"));
+        var primeiroPagamento = entregas.receber(dono.getId(), empresa.id(), entrega.id(), pagamento, chavePagamento);
+        var repetido = entregas.receber(dono.getId(), empresa.id(), entrega.id(), pagamento, chavePagamento);
+        assertThat(repetido).isEqualTo(primeiroPagamento);
+        assertThat(entregas.consultar(dono.getId(), empresa.id(), entrega.id()).pagamentos()).hasSize(1);
+        assertThat(entregas.consultar(dono.getId(), empresa.id(), entrega.id()).entrega().valorPago()).isEqualByComparingTo("25.10");
+        var outraEntrega = entregas.criar(dono.getId(), empresa.id(), entrada(dia, false));
+        assertThatThrownBy(() -> entregas.receber(dono.getId(), empresa.id(), outraEntrega.id(), pagamento, chavePagamento))
+                .isInstanceOf(com.nextflow.compartilhado.idempotencia.ConflitoIdempotenciaException.class);
+        assertThat(entregas.consultar(dono.getId(), empresa.id(), outraEntrega.id()).pagamentos()).isEmpty();
+        assertThat(jdbc.queryForObject("select count(*) from operacoes_idempotentes where estabelecimento_id = ?",
+                Integer.class, empresa.id())).isEqualTo(2);
+    }
+
+    @Test void pagamentoRepetidoConcorrenteComMesmaChaveCriaUmUnicoRecebimento() throws Exception {
+        var dono = usuario();
+        var empresa = empresas.criar(dono.getId(), "Reenvio concorrente");
+        var dia = LocalDate.now(ZoneId.of("America/Sao_Paulo"));
+        var entrega = entregas.criar(dono.getId(), empresa.id(), entrada(dia, false));
+        var chave = UUID.randomUUID();
+        var pagamento = new PagamentoEntrada(dia, new BigDecimal("50.25"));
+        var inicio = new CountDownLatch(1);
+        Callable<Pagamento.Resposta> repetir = () -> {
+            inicio.await();
+            return entregas.receber(dono.getId(), empresa.id(), entrega.id(), pagamento, chave);
+        };
+        var executor = Executors.newFixedThreadPool(2);
+        try {
+            var primeiro = executor.submit(repetir);
+            var segundo = executor.submit(repetir);
+            inicio.countDown();
+            assertThat(primeiro.get(20, TimeUnit.SECONDS)).isEqualTo(segundo.get(20, TimeUnit.SECONDS));
+        } finally { executor.shutdownNow(); }
+        var detalhe = entregas.consultar(dono.getId(), empresa.id(), entrega.id());
+        assertThat(detalhe.pagamentos()).hasSize(1);
+        assertThat(detalhe.entrega().valorPago()).isEqualByComparingTo("50.25");
+        assertThat(jdbc.queryForObject("select count(*) from operacoes_idempotentes where operacao = 'PAGAMENTO'", Integer.class)).isEqualTo(1);
+    }
+
+    @Test void rollbackRemoveOperacaoEPermiteRepetirComAChaveOriginal() {
+        var dono = usuario();
+        var empresa = empresas.criar(dono.getId(), "Rollback idempotente");
+        var dia = LocalDate.now(ZoneId.of("America/Sao_Paulo"));
+        var chave = UUID.randomUUID();
+        var falha = new IllegalStateException("Falha simulada apos gravar a operacao");
+        assertThatThrownBy(() -> new TransactionTemplate(transacoes).executeWithoutResult(status -> {
+            entregas.criar(dono.getId(), empresa.id(), entrada(dia, false), chave);
+            entityManager.flush();
+            assertThat(jdbc.queryForObject("select count(*) from operacoes_idempotentes where estabelecimento_id = ?",
+                    Integer.class, empresa.id())).isEqualTo(1);
+            throw falha;
+        })).isSameAs(falha);
+        assertThat(jdbc.queryForObject("select count(*) from operacoes_idempotentes where estabelecimento_id = ?",
+                Integer.class, empresa.id())).isZero();
+        assertThat(entregas.listar(dono.getId(), empresa.id(), dia, dia, false, 0, 20).total()).isZero();
+        var criada = entregas.criar(dono.getId(), empresa.id(), entrada(dia, false), chave);
+        assertThat(entregas.criar(dono.getId(), empresa.id(), entrada(dia, false), chave).id()).isEqualTo(criada.id());
     }
 
     @Test void centavosQuitacaoPosteriorETotaisIndependemDaPagina() {

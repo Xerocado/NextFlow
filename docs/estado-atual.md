@@ -1,6 +1,32 @@
 # Estado atual e continuidade — 19/10/2026
 
+## Atualização — 28/10/2026 — reenvio seguro de lançamentos
+
+Implementado `Idempotency-Key` opcional para criação de entrega, pagamento e
+gasto. A V8 guarda permanentemente, por empresa/operação/chave, somente hash
+SHA-256, ID do resultado e instante; payload e dados pessoais não são copiados.
+Chave igual e conteúdo igual retornam o resultado original; conteúdo ou entrega
+de destino diferentes retornam HTTP 409. A gravação é atômica com o lançamento;
+o teste de rollback confirma que ambos somem juntos. Um teste concorrente de
+pagamento confirma um recebimento para duas requisições simultâneas. A interface
+persiste somente chave/hash em `sessionStorage` e reutiliza após recarregar.
+
+Validação executada nesta atualização: `.\mvnw.cmd -o verify` passou com 71
+testes rápidos e 35 integrados em PostgreSQL 16.15 descartável; Flyway validou
+e aplicou V1–V8. `npm test --prefix frontend` passou (71) e
+`npm run build --prefix frontend` passou. `node scripts/validar-interface.mjs`
+passou com 19/19 cenários em Edge 156.0.4314.50, incluindo reenvio com resposta
+perdida, desktop/mobile, isolamento, cancelamento de consultas e Mailpit local.
+Os contêineres e processos temporários foram encerrados pelo roteiro; nenhum
+volume operacional foi usado. Limites atuais: o header é
+opcional para clientes legados, não existe expurgo das linhas permanentes e a
+garantia frontend depende do `sessionStorage` disponível. Idempotência não cobre
+outros papéis, edições, estornos ou qualquer operação fora das três criações.
+
 ## Revalidação — 28/10/2026
+
+Registro da validação anterior à paginação independente e à idempotência; os
+resultados e o estado mais recentes estão nas atualizações acima.
 
 Antes de abrir os próximos incrementos, repeti a validação da base na branch
 `feat/estabilidade-operacional`. `npm test --prefix frontend` passou com 68

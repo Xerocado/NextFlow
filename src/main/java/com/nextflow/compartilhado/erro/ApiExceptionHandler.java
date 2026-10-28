@@ -9,6 +9,12 @@ import org.springframework.web.bind.annotation.*;
 
 @RestControllerAdvice
 public class ApiExceptionHandler {
+    @ExceptionHandler(com.nextflow.compartilhado.idempotencia.ConflitoIdempotenciaException.class)
+    public ProblemDetail conflitoIdempotencia() {
+        return ProblemDetail.forStatusAndDetail(HttpStatus.CONFLICT,
+                "A chave de repeticao ja foi usada com outros dados.");
+    }
+
     @ExceptionHandler(com.nextflow.entrega.EntregaNaoEncontradaException.class)
     public ProblemDetail entregaNaoEncontrada() {
         return ProblemDetail.forStatusAndDetail(HttpStatus.NOT_FOUND, "Entrega nao encontrada.");

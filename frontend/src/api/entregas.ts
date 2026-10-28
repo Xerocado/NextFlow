@@ -41,7 +41,7 @@ async function requisitar(url: string, init: RequestInit = {}) {
   let resposta: Response
   try { resposta = await fetchAutenticado(url, { ...init, credentials: 'same-origin', cache: 'no-store', signal: init.signal ? AbortSignal.any([init.signal, AbortSignal.timeout(10000)]) : AbortSignal.timeout(10000) }) }
   catch { throw new Error('Não foi possível conectar. Atualize e confira os registros antes de repetir uma operação.') }
-  if (!resposta.ok) throw new Error(resposta.status === 401 ? 'Sua sessão expirou. Entre novamente.' : resposta.status === 403 ? 'A sessão de segurança expirou ou você não tem permissão.' : resposta.status === 404 ? 'Empresa, cliente ou entrega não encontrado, ou sem permissão.' : resposta.status === 400 ? 'Confira os campos, a data e o saldo atualizado da entrega.' : 'Não foi possível concluir. Atualize e confira os registros antes de repetir uma operação.')
+  if (!resposta.ok) throw new Error(resposta.status === 401 ? 'Sua sessão expirou. Entre novamente.' : resposta.status === 403 ? 'A sessão de segurança expirou ou você não tem permissão.' : resposta.status === 404 ? 'Empresa, cliente ou entrega não encontrado, ou sem permissão.' : resposta.status === 400 ? 'Confira os campos, a data e o saldo atualizado da entrega.' : resposta.status === 409 ? 'A chave de repetição já foi usada com outros dados. Confira os registros e revise o formulário antes de tentar novamente.' : 'Não foi possível concluir. Atualize e confira os registros antes de repetir uma operação.')
   return resposta.json()
 }
 const caminho = (empresa: string) => `/api/estabelecimentos/${encodeURIComponent(empresa)}/entregas`
@@ -51,9 +51,9 @@ export async function listarEntregas(empresa: string, inicio: string, fim: strin
   return requisitar(`${caminho(empresa)}?${new URLSearchParams({ inicio, fim, pendentes: String(pendentes), pagina: String(pagina), tamanho: '20' })}`, { signal })
 }
 export function consultarEntrega(empresa: string, id: string, signal?: AbortSignal): Promise<DetalheEntrega> { return requisitar(`${caminho(empresa)}/${encodeURIComponent(id)}`, { signal }) }
-async function enviar(url: string, dados: unknown) {
+async function enviar(url: string, dados: unknown, chave?: string) {
   const csrf = await requisitar('/api/auth/csrf') as { headerName: string; token: string }
-  return requisitar(url, { method: 'POST', headers: { [csrf.headerName]: csrf.token, 'Content-Type': 'application/json' }, body: JSON.stringify(dados) })
+  return requisitar(url, { method: 'POST', headers: { [csrf.headerName]: csrf.token, 'Content-Type': 'application/json', ...(chave ? { 'Idempotency-Key': chave } : {}) }, body: JSON.stringify(dados) })
 }
-export function criarEntrega(empresa: string, entrada: EntregaEntrada): Promise<Entrega> { return enviar(caminho(empresa), prepararEntrega(entrada)) }
-export function registrarPagamento(empresa: string, id: string, data: string, valor: string, saldo: string): Promise<Pagamento> { return enviar(`${caminho(empresa)}/${encodeURIComponent(id)}/pagamentos`, prepararPagamento(data, valor, saldo)) }
+export function criarEntrega(empresa: string, entrada: EntregaEntrada, chave?: string): Promise<Entrega> { return enviar(caminho(empresa), prepararEntrega(entrada), chave) }
+export function registrarPagamento(empresa: string, id: string, data: string, valor: string, saldo: string, chave?: string): Promise<Pagamento> { return enviar(`${caminho(empresa)}/${encodeURIComponent(id)}/pagamentos`, prepararPagamento(data, valor, saldo), chave) }
